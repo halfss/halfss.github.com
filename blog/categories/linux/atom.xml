@@ -1,58 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
 
-<!DOCTYPE HTML>
-<html>
-<head>
-	<meta charset="utf-8">
-	<title>My Octopress Blog</title>
-	<meta name="author" content="Your Name">
+  <title><![CDATA[Category: linux | My Octopress Blog]]></title>
+  <link href="http://halfss.github.com/blog/categories/linux/atom.xml" rel="self"/>
+  <link href="http://halfss.github.com/"/>
+  <updated>2013-02-26T16:41:17+08:00</updated>
+  <id>http://halfss.github.com/</id>
+  <author>
+    <name><![CDATA[Your Name]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
 
-	
-	<meta name="description" content="1简介 fpm:对包的类型进行转换,从一种类型转换到另一种类型 #包作者整理了PPT: https://docs.google.com/presentation/d/11TOsLeg58w7GCt6i7y1VIQWnUYotsx0MzGMJ_dWUJNo/present#slide=id.i0 &hellip;">
-	
-
-	<link href="/atom.xml" rel="alternate" title="My Octopress Blog" type="application/atom+xml">
-	<link rel="canonical" href="">
-	<link href="/favicon.png" rel="shortcut icon">
-	<link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
-	<!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
-	<script src="//ajax.googleapis.com/ajax/libs/jquery/1.8/jquery.min.js"></script>
-	
-
-	
-</head>
-
-<body>
-	<header id="header" class="inner"><nav><ul>
-  <li><a href="/">Home</a></li>
-  <li><a href="/blog/archives">Archives</a></li>
-</ul></nav>
-</header>
-	<div id="content" class="inner">
-
-
-	<article class="post"><header>
   
-  <h1 class="title"><a href="/blog/2013/02/26/fpmbao-guan-li/">Fpm包管理</a></h1>
-  
-  
-
-
-
-
-
-
-
-
-	
-		<time datetime="2013-02-26T16:38:00+08:00">
-			<span class="day">26</span><span class="month">Feb</span>
-		</time>
-	
-
-</header>
-<div class="entry-content">
-  
-    <h3>1简介</h3>
+  <entry>
+    <title type="html"><![CDATA[fpm包管理]]></title>
+    <link href="http://halfss.github.com/blog/2013/02/26/fpmbao-guan-li/"/>
+    <updated>2013-02-26T16:38:00+08:00</updated>
+    <id>http://halfss.github.com/blog/2013/02/26/fpmbao-guan-li</id>
+    <content type="html"><![CDATA[<h3>1简介</h3>
 
 <p>fpm:对包的类型进行转换,从一种类型转换到另一种类型</p>
 
@@ -208,60 +174,7 @@ libiconv-1.13.1-1.x86_64.rpm
 <li><p>http://www.ducea.com/2011/08/31/build-your-own-packages-easily-with-fpm/</p></li>
 </ul>
 
-
+]]></content>
+  </entry>
   
-  
-  <footer class="meta">
-    
-
-
-
-	<div class="tags"><a class='category' href='/blog/categories/linux/'>linux</a></div>
-
-    
-  </footer>
-  
-</div>
-</article>
-
-</div>
-	<footer id="footer" class="inner"><div class="social alignright">
-	
-	
-	
-	
-	
-	<a class="rss" href="/atom.xml" title="RSS">RSS</a>
-</div>
-<p>&copy; 2013 Your Name</p>
-<div class="clearfix"></div></footer>
-	<script src="/javascripts/jquery.fancybox.pack.js"></script>
-<script type="text/javascript">
-	(function($){
-		$('.entry-content').each(function(i){
-			var _i = i;
-			$(this).find('img').each(function(){
-				var alt = $(this).attr('alt');
-
-				if (alt == '' || typeof alt == 'undefined'){
-					$(this).wrap('<a href="'+$(this).attr('src')+'" class="fancybox" rel="gallery'+_i+'" />');
-				} else {
-					$(this).after('<span class="caption">'+alt+'</span>').wrap('<a href="'+$(this).attr('src')+'" class="fancybox" title="'+alt+'" rel="gallery'+_i+'" />');
-				}
-			});
-		});
-		$('.fancybox').fancybox();
-	})(jQuery);
-</script>
-<div id="phasebeam">
-	<canvas></canvas>
-	<canvas></canvas>
-	<canvas></canvas>
-</div>
-<script src="/javascripts/phasebeam.js"></script>
-
-
-
-
-</body>
-</html>
+</feed>
