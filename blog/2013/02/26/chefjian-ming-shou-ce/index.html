@@ -1,24 +1,57 @@
-<?xml version="1.0" encoding="utf-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom">
 
-  <title><![CDATA[My Octopress Blog]]></title>
-  <link href="http://halfss.github.com/atom.xml" rel="self"/>
-  <link href="http://halfss.github.com/"/>
-  <updated>2013-02-26T16:52:41+08:00</updated>
-  <id>http://halfss.github.com/</id>
-  <author>
-    <name><![CDATA[Your Name]]></name>
-    
-  </author>
-  <generator uri="http://octopress.org/">Octopress</generator>
+<!DOCTYPE HTML>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>chef简明手册 | My Octopress Blog</title>
+	<meta name="author" content="Your Name">
 
+	
+	<meta name="description" content="1:楔子： 从前有个名叫chef的大厨，功夫甚为了得，通过如下几招: * 1:rpm-Uvhhttp://rbel.frameos.org/rbel6
+* 2:yum -y install rubygem-chef-server
+* 3:setup-chef-server.sh &hellip;">
+	
+
+	<link href="/atom.xml" rel="alternate" title="My Octopress Blog" type="application/atom+xml">
+	<link rel="canonical" href="">
+	<link href="/favicon.png" rel="shortcut icon">
+	<link href="/stylesheets/screen.css" media="screen, projection" rel="stylesheet" type="text/css">
+	<!--[if lt IE 9]><script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script><![endif]-->
+	<script src="//ajax.googleapis.com/ajax/libs/jquery/1.8/jquery.min.js"></script>
+	
+
+	
+</head>
+
+<body>
+	<header id="header" class="inner"><nav><ul>
+  <li><a href="/">Home</a></li>
+  <li><a href="/blog/archives">Archives</a></li>
+</ul></nav>
+</header>
+	<div id="content" class="inner"><article class="post"><header>
   
-  <entry>
-    <title type="html"><![CDATA[chef简明手册]]></title>
-    <link href="http://halfss.github.com/blog/2013/02/26/chefjian-ming-shou-ce/"/>
-    <updated>2013-02-26T16:51:00+08:00</updated>
-    <id>http://halfss.github.com/blog/2013/02/26/chefjian-ming-shou-ce</id>
-    <content type="html"><![CDATA[<h3>1:楔子：</h3>
+  <h1 class="title">Chef简明手册</h1>
+  
+  
+
+
+
+
+
+
+
+
+	
+		<time datetime="2013-02-26T16:51:00+08:00">
+			<span class="day">26</span><span class="month">Feb</span>
+		</time>
+	
+
+</header>
+<div class="entry-content">
+  
+    <h3>1:楔子：</h3>
 
 <p>从前有个名叫chef的大厨，功夫甚为了得，通过如下几招:</p>
 
@@ -612,171 +645,71 @@ Updated Environment openstack
 <p>  我们需要往不同的系统上传不同的文件或者模板时，只需要创建相应的文件夹，然后在文件夹种方式和default种同名的文件，不同的系统的客户，就会先来该系统的目录下查找，找不到，在去default目录下查找的</p></li>
 </ul>
 
-]]></content>
-  </entry>
+
+    
+      <div class="sharing">
+	<div class="addthis_toolbox addthis_default_style ">
+	
+	
+	<a class="addthis_button_tweet"></a>
+	
+	
+	<a class="addthis_counter addthis_pill_style"></a>
+	</div>
+	<script type="text/javascript" src="http://s7.addthis.com/js/250/addthis_widget.js#pubid=ra-4daee9911f9dfcb4"></script>
+</div>
+    
   
-  <entry>
-    <title type="html"><![CDATA[fpm包管理]]></title>
-    <link href="http://halfss.github.com/blog/2013/02/26/fpmbao-guan-li/"/>
-    <updated>2013-02-26T16:38:00+08:00</updated>
-    <id>http://halfss.github.com/blog/2013/02/26/fpmbao-guan-li</id>
-    <content type="html"><![CDATA[<h3>1简介</h3>
-
-<p>fpm:对包的类型进行转换,从一种类型转换到另一种类型</p>
-
-<p>#包作者整理了PPT:</p>
-
-<pre>
-https://docs.google.com/presentation/d/11TOsLeg58w7GCt6i7y1VIQWnUYotsx0MzGMJ_dWUJNo/present#slide=id.i0
-</pre>
-
-
-<p>目前源类型支持:</p>
-
-<ul>
-<li><p>dir:二进制包</p></li>
-<li><p>rpm:redhat系列的包</p></li>
-<li><p>gem:ruby的包 #fpm就是用ruby写的,也是gem中的一个包</p></li>
-<li><p>python:python的模块</p></li>
-</ul>
-
-
-<p>目标类型:</p>
-
-<ul>
-<li>rpm</li>
-<li>deb</li>
-<li>solaris</li>
-<li>puppet</li>
-</ul>
-
-
-<h3>2安装</h3>
-
-<h4>2.1安装环境</h4>
-
-<p>fpm是ruby写的,系统环境需要rbuy</p>
-
-<p>#ruby版本要大于1.8.5</p>
-
-<p>在centos5上默认的源的ruby版本为1.8.5,</p>
-
-<p>需添加一下源:</p>
-
-<pre>
-
-rpm -ivh http://yum.puppetlabs.com/el/5/products/x86_64/puppetlabs-release-5-6.noarch.rpm
-
-</pre>
-
-
-<p>该源中的ruby版本为1.8.7</p>
-
-<pre>
-
-yum install -y ruby ruby-devel rubygems rpm-build
-
-</pre>
-
-
-<h4>2.2安装fpm</h4>
-
-<pre>
-gem install fpm
-</pre>
-
-
-<h3>3使用</h3>
-
-<h4>3.1常用语法</h4>
-
-<pre>
-
-常用命令:
-
-fpm -s 源类型 -t 目标类型 [options]
-
-
-
-常用的options:
-
--n 生成的package名字
-
--p 生成的package文件输出位置
-
--v 生成的package版本
-
--d 生成的package依赖于什么软件,通常为-d 'name' 或这 -d 'name > version'
-
--a 系统架构名称,如果是noarch则为'-a all' 或者 '-a native'
-
---description 软件包描述
-
---conflicts 与其他什么软件冲突
-
-
-
-详情:fpm -h
-
-</pre>
-
-
-<h4>3.2示例</h4>
-
-<pre>
-
-[root@localhost test]# tar -xf libiconv-1.13.1.tar.gz 
-
-[root@localhost test]# cd libiconv-1.13.1
-
-[root@localhost libiconv-1.13.1]# ./configure --prefix=/usr
-
-
-
-[root@localhost libiconv-1.13.1]# make
-
-[root@localhost libiconv-1.13.1]# mkdir /tmp/libiconv-1.13.1
-
-[root@localhost libiconv-1.13.1]# make install DESTDIR=/tmp/libiconv-1.13.1
-
-
-
-[root@localhost libiconv-1.13.1]# ls /tmp/libiconv-1.13.1/
-
-usr
-
-
-
-[root@localhost rpm_test]# ls
-
-[root@localhost rpm_test]# fpm -s dir -t rpm -n libiconv -v 1.13.1 -C /tmp/libiconv-1.13.1 usr
-
-[root@localhost rpm_test]# ls
-
-libiconv-1.13.1-1.x86_64.rpm
-
-[root@localhost rpm_test]# rpm -qpl libiconv-1.13.1-1.x86_64.rpm 
-
-/usr/bin/iconv
-
-/usr/include/iconv.h
-
-/usr/include/libcharset.h
-
-…….
-
-</pre>
-
-
-<p>参考:</p>
-
-<ul>
-<li><p>http://waydee.blog.51cto.com/4677242/834002</p></li>
-<li><p>http://blog.sina.com.cn/s/blog_704836f40101fscj.html</p></li>
-<li><p>http://www.ducea.com/2011/08/31/build-your-own-packages-easily-with-fpm/</p></li>
-</ul>
-
-]]></content>
-  </entry>
   
-</feed>
+  <footer class="meta">
+    
+
+
+
+	<div class="tags"><a class='category' href='/blog/categories/linux/'>linux</a></div>
+
+    
+  </footer>
+  
+</div>
+</article></div>
+	<footer id="footer" class="inner"><div class="social alignright">
+	
+	
+	
+	
+	
+	<a class="rss" href="/atom.xml" title="RSS">RSS</a>
+</div>
+<p>&copy; 2013 Your Name</p>
+<div class="clearfix"></div></footer>
+	<script src="/javascripts/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+	(function($){
+		$('.entry-content').each(function(i){
+			var _i = i;
+			$(this).find('img').each(function(){
+				var alt = $(this).attr('alt');
+
+				if (alt == '' || typeof alt == 'undefined'){
+					$(this).wrap('<a href="'+$(this).attr('src')+'" class="fancybox" rel="gallery'+_i+'" />');
+				} else {
+					$(this).after('<span class="caption">'+alt+'</span>').wrap('<a href="'+$(this).attr('src')+'" class="fancybox" title="'+alt+'" rel="gallery'+_i+'" />');
+				}
+			});
+		});
+		$('.fancybox').fancybox();
+	})(jQuery);
+</script>
+<div id="phasebeam">
+	<canvas></canvas>
+	<canvas></canvas>
+	<canvas></canvas>
+</div>
+<script src="/javascripts/phasebeam.js"></script>
+
+
+
+
+</body>
+</html>
