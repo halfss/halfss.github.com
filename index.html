@@ -7,9 +7,7 @@
 	<meta name="author" content="Your Name">
 
 	
-	<meta name="description" content="1:楔子： 从前有个名叫chef的大厨，功夫甚为了得，通过如下几招: * 1:rpm-Uvhhttp://rbel.frameos.org/rbel6
-* 2:yum -y install rubygem-chef-server
-* 3:setup-chef-server.sh &hellip;">
+	<meta name="description" content="目录 1 安装 1.1 准备 1.2 服务端安装 1.3 客户端安装 1.4 配置 1.5 基本管理 2 客户端管理 2.1 基本管理 2.2 节点管理 2.3 资源管理 3 module和resouse 3.1 module 3.2 resourse 3.2.1 基本元素 3.2.2 操作 3 &hellip;">
 	
 
 	<link href="/atom.xml" rel="alternate" title="My Octopress Blog" type="application/atom+xml">
@@ -26,10 +24,1402 @@
 <body>
 	<header id="header" class="inner"><nav><ul>
   <li><a href="/">Home</a></li>
-  <li><a href="/blog/archives">Archives</a></li>
-</ul></nav>
+  <li class='category'><a href='/blog/categories/linux/'>linux (3)</a></li>
+
+  <li><a href="/">About</a></li>
+</ul>
+</nav>
 </header>
 	<div id="content" class="inner">
+
+
+	<article class="post"><header>
+  
+  <h1 class="title"><a href="/blog/2013/02/26/puppetxue-xi-bi-ji/">Puppet学习笔记</a></h1>
+  
+  
+
+
+
+
+
+
+
+
+	
+		<time datetime="2013-02-26T21:24:00+08:00">
+			<span class="day">26</span><span class="month">Feb</span>
+		</time>
+	
+
+</header>
+<div class="entry-content">
+  
+    <h1>目录</h1>
+
+<h3>1 安装</h3>
+
+<h5>1.1 准备</h5>
+
+<h5>1.2 服务端安装</h5>
+
+<h5>1.3 客户端安装</h5>
+
+<h5>1.4 配置</h5>
+
+<h5>1.5 基本管理</h5>
+
+<h3>2 客户端管理</h3>
+
+<h5>2.1 基本管理</h5>
+
+<h5>2.2 节点管理</h5>
+
+<h5>2.3 资源管理</h5>
+
+<h3>3 module和resouse</h3>
+
+<h5>3.1 module</h5>
+
+<h5>3.2 resourse</h5>
+
+<h5>3.2.1 基本元素</h5>
+
+<h5>3.2.2 操作</h5>
+
+<h5>3.2.3 逻辑关系</h5>
+
+<h3>4:杂项</h3>
+
+<h5>4.1 默认变量</h5>
+
+<h5>4.2 节点变量</h5>
+
+<h5>4.3 节点继承</h5>
+
+<h3>5 puppet工作原理</h3>
+
+<h3>6 性能优化</h3>
+
+<p>Puppet是一种开源的IT自动化工具，可以对配置与服务进行批量管理。首次发布于2005年，</p>
+
+<h3>1 安装</h3>
+
+<p>硬件环境：</p>
+
+<ul>
+<li>puppet服务器：172.58.0.68</li>
+<li>puppet客户端：172.58.0.61</li>
+</ul>
+
+
+<h4>1.1 准备</h4>
+
+<p>添加epel源：</p>
+
+<pre>
+rpm -ivh http://mirrors.sohu.com/fedora-epel/6/x86_64/epel-release-6-8.noarch.rpm
+</pre>
+
+
+<p>添加puppet源</p>
+
+<pre>
+rpm -ivh http://yum.puppetlabs.com/el/6/products/x86_64/puppetlabs-release-6-6.noarch.rpm
+</pre>
+
+
+<h4>1.2 服务端安装</h4>
+
+<p>服务端安装：</p>
+
+<pre>
+yum install -y ntp  ruby ruby-lib ruby-rdoc puppet-server
+</pre>
+
+
+<p>开启自动启动：</p>
+
+<pre>
+chkconfig ntpd on
+chkconfig puppetmaster on
+</pre>
+
+
+<p>启动服务：</p>
+
+<pre>
+/etc/init.d/ntpd start
+/etc/init.d/puppetmaster start
+</pre>
+
+
+<p>服务器需要对外开放如下端口</p>
+
+<ul>
+<li>8140： puppet服务端</li>
+<li>123：ntp服务端</li>
+</ul>
+
+
+<p>防火墙开启相应端口</p>
+
+<pre>
+iptables -I INPUT -p tcp --dport 123 -j ACCEPT
+iptables -I INPUT -p tcp --dport 8140 -j ACCEPT
+</pre>
+
+
+<h4>1.3 客户端安装</h4>
+
+<pre>
+yum install -y puppet
+</pre>
+
+
+<h4>1.4 配置</h4>
+
+<p>puppet服务端与客户端都安装好后，开始对puppet进行配置，
+puppet整体时一个c/s结构，客户端需和服务端建立，puppet基于域名进行机器间的通信，
+要求所有机器有完整的域名（FQDN），这个要求对国内来说有写奢侈，不过我们可以用原始的指定hosts的方式来解决</p>
+
+<p>在2台机器的hosts(/etc/hosts)中分别加入如下内容：</p>
+
+<pre>
+172.58.0.68 master.puppet.lightcloud.cn
+172.58.0.61 client3.puppet.lightcloud.cn
+</pre>
+
+
+<p>保证2台机器通过域名能访问到对方，</p>
+
+<p>puppet的默认配置文件为:/etc/puppet/puppet.conf</p>
+
+<p>配置文件分为3部分：main master aget</p>
+
+<ul>
+<li>main：默认值对master和agent都有效，优先级最低</li>
+<li>master：仅对puppetmaster（服务端进程）生效</li>
+<li>agent：仅对puppet（客户端进程）生效</li>
+</ul>
+
+
+<p>所以在服务端只需要main+master，在客户端只需要main+agent</p>
+
+<p>配置文件中有很多选项（目前有204个），详情查看：[http://docs.puppetlabs.com/references/stable/configuration.html]</p>
+
+<p>所有在配置文件中实现实现的功能，均可以在puppet（集成管理puppet的命令，有很多很多的参数，通过puppet help查看）命令中指定，不过通过命令很不方便，这里均在配置文件中指定</p>
+
+<pre>
+[main]
+  #指定了puppet服务端的地址
+    server = master.puppet.lightcloud.cn
+    #是否实时刷新日志到磁盘
+    autoflush = false
+    #日志目录
+    logdir = /var/log/puppet
+    #puppet进程pid文件存放目录，使用守护进程运行时，需要这个文件
+    rundir = /var/run/puppet
+
+[master]
+  #保存客户端上传自身信息的文件存储目录，每个节点会有一个单独的目录，客户端的每次执行会生成一个以日期+时间命名yaml文件
+    reportdir = /var/lib/puppet/reports
+    #在客户第一次链接服务端的时候，需要服务端签名（相当于确认），服务端对客户端的识别是通过名字来确
+    #认的，在这个文件中的名字，可以被服务端自动签名（确认），支持正则匹配，内容类似这样：
+    #test.lightcloud.cn
+  #*.puppet.lightcloud.cn
+    autosign = /etc/puppet/autosign.conf
+    #puppetmaster服务端监听地址
+    bindaddress = 0.0.0.0
+    #puppetmaster服务端监听端口
+    masterport = 8140
+    #是否记录客户端对
+    evaltrace = true
+
+[agent]
+  #客户端的名字
+    certname = client.puppet.lightcloud.cn
+    #是否后台运行
+    daemonize = true
+    #是否允许证书自动覆盖，默认是不允许的，每个证书的有效期为5年
+    allow_duplicate_certs = true
+    #是否上传客户端对resouces的执行结果
+    report = true
+    #上传的方式，在有puppet的dashboard时需要这个
+    reports = store, http
+    #store上传是的地址
+    report_server =  master.puppet.lightcloud.cn
+    #store上传是的端口
+    report_port = 8140
+    #http上传时的地址,按照puppet的dashboard时需要这个
+    reporturl = http://172.58.0.68:3000/reports/upload
+    #客户端执行间隔（20分钟）
+    runinterval = 20m
+    #是否在执行时间上另加一个随机时间（0到最大随机时间之间的一个整数值）
+    splay = true 
+    #加的随之时间的最大长度
+    splaylimit = 10m
+    #客户端获取配置超时时间
+    configtimeout = 2m
+    #日志记录是是否加颜色
+    color = ansi
+    #是否忽略本地缓存
+    ignorecache = true
+ </pre>
+
+
+<p></p>
+
+<h4>1.5 基本管理</h4>
+
+<p>配置文件调整完毕后，重启puppermaster服务，在客户端上执行如下命令：</p>
+
+<pre>
+puppet agent --test
+Warning: /File[/etc/puppet/ssl/public_keys]/seluser: Could not stat; No such file or directory - /etc/puppet/ssl/public_keys
+Warning: /File[/etc/puppet/ssl/public_keys]/selrole: Could not stat; No such file or directory - /etc/puppet/ssl/public_keys
+Warning: /File[/etc/puppet/ssl/public_keys]/seltype: Could not stat; No such file or directory - 
+省略若刚行，中间一直时警告
+Warning: /File[/var/lib/puppet/state]/selrange: Could not stat; No such file or directory - /var/lib/puppet/state
+Info: Creating a new SSL key for client.puppet.lightcloud.cn
+Info: Caching certificate for ca
+Info: Creating a new SSL certificate request for client.puppet.lightcloud.cn
+Info: Certificate Request fingerprint (SHA256): 22:6A:A5:F6:9C:F0:CB:07:4A:75:2C:3C:44:38:FE:B2:27:78:7D:45:45:54:7D:90:AF:EB:00:A8:FD:2D:2C:0E
+Exiting; no certificate found and waitforcert is disabled
+</pre>
+
+
+<p>最后一行，提示为找到证书，是因为服务端还没给客户端签名确认，如果客户的名字匹配到autosign.conf时，服务端会自动确认
+在服务端执行如下命令，</p>
+
+<pre>
+[root@master manifests]# puppet cert list --all
+  "client.puppet.lightcloud.cn"  (SHA256) 22:6A:A5:F6:9C:F0:CB:07:4A:75:2C:3C:44:38:FE:B2:27:78:7D:45:45:54:7D:90:AF:EB:00:A8:FD:2D:2C:0E
++ "client3.puppet.lightcloud.cn" (SHA256) 98:89:AB:BE:B2:D0:52:1C:33:C2:18:6E:46:87:69:A3:A6:3F:98:3B:00:AB:B7:92:39:D9:6A:F8:B7:91:E3:5B (alt names: "DNS:client3.puppet.lightcloud.cn", "DNS:master.puppet.lightcloud.cn", "DNS:puppet", "DNS:puppet.puppet.lightcloud.cn")
+</pre>
+
+
+<p>输出2行数据，上面没有”+“的那行，时在刚刚刚刚添加的客户端，下面的那行时已经存在的</p>
+
+<pre>
+[root@master manifests]# puppet cert --sign client.puppet.lightcloud.cn
+Notice: Signed certificate request for client.puppet.lightcloud.cn
+Notice: Removing file Puppet::SSL::CertificateRequest client.puppet.lightcloud.cn at '/etc/puppet/ssl/ca/requests/client.puppet.lightcloud.cn.pem'
+[root@master manifests]# puppet cert list --all
++ "client.puppet.lightcloud.cn"  (SHA256) 61:90:1B:41:08:65:42:65:AE:24:EF:2B:97:68:D1:51:35:5C:A3:38:32:BD:C5:1D:B8:25:4A:80:4B:2F:C9:19
++ "client3.puppet.lightcloud.cn" (SHA256) 98:89:AB:BE:B2:D0:52:1C:33:C2:18:6E:46:87:69:A3:A6:3F:98:3B:00:AB:B7:92:39:D9:6A:F8:B7:91:E3:5B (alt names: "DNS:client3.puppet.lightcloud.cn", "DNS:master.puppet.lightcloud.cn", "DNS:puppet", "DNS:puppet.puppet.lightcloud.cn")
++ "master.puppet.lightcloud.cn"  (SHA256) 19:09:3D:DF:9C:71:47:8A:ED:74:AB:5B:30:22:42:38:35:7A:80:6C:3B:6A:75:D1:CC:BE:98:93:F2:46:9D:6A (alt names: "DNS:master.puppet.lightcloud.cn", "DNS:puppet", "DNS:puppet.puppet.lightcloud.cn")
+</pre>
+
+
+<p>签名后，就看到2行都有加号了，就都已经通过服务端确认了,
+给客户端下发一个简单的配置</p>
+
+<pre>
+[root@master manifests]# cat /etc/puppet/manifests/site.pp 
+
+node default {
+        file {
+                "/tmp/helloworld.txt": content => "hello, world";
+        }
+}
+</pre>
+
+
+<p>回到客户端：</p>
+
+<pre>
+[root@localhost ~]# puppet agent --test
+Info: Retrieving plugin
+Info: Caching catalog for client.puppet.lightcloud.cn
+Warning: /File[/tmp/helloworld.txt]/seluser: Could not stat; No such file or directory - /tmp/helloworld.txt
+Warning: /File[/tmp/helloworld.txt]/selrole: Could not stat; No such file or directory - /tmp/helloworld.txt
+Warning: /File[/tmp/helloworld.txt]/seltype: Could not stat; No such file or directory - /tmp/helloworld.txt
+Warning: /File[/tmp/helloworld.txt]/selrange: Could not stat; No such file or directory - /tmp/helloworld.txt
+Info: Applying configuration version '1357462364'
+Notice: /File[/tmp/helloworld.txt]/ensure: defined content as '{md5}e4d7f1b4ed2e42d15898f4b27b019da4'
+Info: Creating state file /var/lib/puppet/state/state.yaml
+Notice: Finished catalog run in 0.07 seconds
+
+[root@localhost ~]# cat /tmp/helloworld.txt 
+hello, world
+</pre>
+
+
+<p>我们下发的配置已经执行成功了 :)</p>
+
+<h3>2 客户端管理</h3>
+
+<p>puppet通过/etc/puppet/manifests/site.pp来对客户端进行管理</p>
+
+<pre>
+[root@master manifests]# pwd
+/etc/puppet/manifests
+[root@master manifests]# tree
+.
+└── site.pp
+1 directory
+</pre>
+
+
+<h4>2.1 基本管理</h4>
+
+<p>通过指定不同的node(一个node只能被指定一次)，然后写不同的resourse，来对客户端做各种管理
+比如：</p>
+
+<pre>
+cat /etc/puppet/manifests/site.pp
+
+node default {
+    file {
+        "/tmp/helloworld.txt": content => "hello, world";
+    }
+}
+
+
+node "client.puppet.lightcloud.cn" {
+    file {
+    "/tmp/client.txt":
+    content => "i am client";
+    }
+
+    package {
+    "wget":
+    ensure => installed;
+    }
+}
+</pre>
+
+
+<p>通过这样的方式，可以一直写下去，但是写个成百上千的，就会感觉这样有点太原始来，而且那么的不专业</p>
+
+<h4>2.2 节点管理</h4>
+
+<p>*.pp文件中时ruby的语法，一般的语言都可以从其他文件中导入内容，为了看起来更规范，我时这样做的</p>
+
+<pre>
+[root@master manifests]# pwd
+/etc/puppet/manifests
+[root@master manifests]# tree
+.
+├── default
+│   └── default.pp
+├── nodes
+│   ├── client3.puppet.lightcloud.cn.pp
+│   └── client.puppet.lightcloud.cn.pp
+└── site.pp
+
+2 directories, 4 files
+</pre>
+
+
+<p>default/default.pp中定义常用变量
+nodes中分别以节点名管理各节点配置
+然后在入口文件site.pp中把他们都导入(支持通配符导入)进来</p>
+
+<pre>
+[root@master manifests]# cat site.pp 
+import "default/*"
+import "nodes/*"
+
+[root@master manifests]# cat default/default.pp 
+$owner = 'root'
+$group = 'root'
+$mode = '0777'
+
+[root@master manifests]# cat nodes/client.puppet.lightcloud.cn.pp 
+node "client.puppet.lightcloud.cn" {
+    file {
+        "/tmp/client.txt":
+        owner => $owner,
+        group => $group,
+        mode => $mode,
+        content => 'i am just for client'
+    }
+}
+[root@master manifests]# cat nodes/client3.puppet.lightcloud.cn.pp 
+node "client3.puppet.lightcloud.cn" {
+    file {
+        "/tmp/client.txt":
+        owner => $owner,
+        group => $group,
+        mode => $mode,
+        content => 'i am just for clien3'
+    }
+}
+</pre>
+
+
+<p>分别运行客户端：</p>
+
+<pre>
+puppet agent -t ignorecache=true
+</pre>
+
+
+<p>在client上：
+</pre>
+[root@localhost ~]# ls /tmp/
+client.txt
+[root@localhost ~]# cat /tmp/client.txt
+i am just for client
+</pre></p>
+
+<p>在client3上：</p>
+
+<pre>
+[root@client3 ~]# ls /tmp/
+client.txt
+[root@client3 ~]# cat /tmp/client.txt 
+i am just for clien3
+</pre>
+
+
+<p>这样我们就可以较为正规的管理我们的各节点来，但是使用中我们会发现，很多个节需要相同的配置；我们会有大量重复的代码；这样不行，我们需要把这些配置模块化，重用化。</p>
+
+<h4>2.3 资源管理</h4>
+
+<p>puppet中有个module，可以对资源进行模块化，让我们重用
+经过多年的积累，puppet对module也有来一定的积累，有了自己的module库</p>
+
+<pre>
+[root@master manifests]# puppet module search ssh
+Notice: Searching https://forge.puppetlabs.com ...
+NAME                             DESCRIPTION       AUTHOR             KEYWORDS
+erwbgy-ssh                       # puppet-ssh      @erwbgy            rhel ssh
+csail-sshguard                   This is the `...  @csail             debian  
+blom-rssh        44                rssh module       @blom                      
+maestrodev-ssh_keygen            Generation of...  @maestrodev        ssh     
+bazilek-ssh_key_groups           Manage ssh ke...  @bazilek           ssh
+</pre>
+
+
+<p>当然我们也可以做自己的module</p>
+
+<p>module是一个个个的按一定要求文件夹，将这些文件夹放到指定的路径中，puppet就会认为这是一个模块了，
+通过”puppet config print modulepath“可以知道默认的module存放目录；“/etc/puppet/modules”便是其中的一个,在这些文件夹中的模块在使用的时候不需要写绝对路径。</p>
+
+<pre>
+[root@master modules]# puppet module list
+/etc/puppet/modules (no modules installed)
+/usr/share/puppet/modules (no modules installed)
+</pre>
+
+
+<p>创建自己的module：</p>
+
+<pre>
+cd /etc/puppet/modules
+mkdir -p ssh/{manifests,files,templates},module的入口在manifests/init.pp,
+
+[root@master modules]# tree ssh
+ssh
+├── files
+├── manifests
+│   └── init.pp
+└── templates
+    └── sshd_config.erb
+
+3 directories, 2 files
+
+[root@master modules]# cat ssh/manifests/init.pp 
+class ssh {
+
+    $port = 50000
+
+    package {
+        "openssh-clients":
+        ensure => installed;
+    }
+    
+    file {
+        "/etc/ssh/sshd_config":
+        mode => '0600',
+        owner => 'root',
+        group => 'root',
+        content => template ("ssh/sshd_config.erb");
+    }
+}
+
+
+[root@master modules]# cat ssh/templates/sshd_config.erb 
+Port <%= port %>
+Protocol 2
+SyslogFacility AUTH
+AuthorizedKeysFile /root/.ssh/.keys
+PasswordAuthentication no
+ChallengeResponseAuthentication no
+X11Forwarding no
+Subsystem sftp  /usr/libexec/openssh/sftp-server
+AllowGroups
+PermitUserEnvironment yes
+
+</pre>
+
+
+<p>在使用的时候：</p>
+
+<pre>
+[root@master manifests]# cat nodes/client.puppet.lightcloud.cn.pp 
+node "client.puppet.lightcloud.cn" {
+    include ssh
+}
+</pre>
+
+
+<p>ssh module 会让client.puppet.lightcloud.cn客户端在执行puppet的时候装上”openssh-clients“这个包，并且/etc/ssh/sshd_config内容会按照模板中生成</p>
+
+<pre>
+[root@localhost ~]# cat /etc/ssh/sshd_config 
+Port 50000
+Protocol 2
+SyslogFacility AUTH
+AuthorizedKeysFile /root/.ssh/.keys
+PasswordAuthentication no
+ChallengeResponseAuthentication no
+X11Forwarding no
+Subsystem sftp  /usr/libexec/openssh/sftp-server
+AllowGroups
+PermitUserEnvironment yes
+</pre>
+
+
+<h3>3 module和resouse</h3>
+
+<h4>3.1 module</h4>
+
+<p>puppet中module的规范</p>
+
+<pre>
+[root@master modules]# tree ssh
+ssh
+├── files  #存放需要下发到客户端的静态文件 (常用)
+│   └── test  # 以’puppet:///modules/ssh/test‘引用
+├── lib #存放自定义的插件和资源类型  (不常用)
+├── manifests #存放本模块所有的manifests (必须)
+│   ├── init.pp #本模块manifests的入口文件，可以import/include (必须)
+│   ├── params
+│   │   └── attributes.pp
+│   └── resourse
+│       ├── sshd_config.pp
+│       └── test.pp
+├── spec #存放lib中的测试文件 (不常用)
+├── templates #存放模板文件 (常用)
+│   └── sshd_config.erb 以template ("ssh/sshd_config.erb")引用
+└── tests (常用)
+    └── init.pp
+
+8 directories, 7 files
+</pre>
+
+
+<p>当我们编写好自己的module时，就可以把他应用在客户端了：</p>
+
+<pre>
+[root@master puppet]# cat /etc/puppet/manifests/nodes/client.puppet.lightcloud.cn.pp 
+node "client.puppet.lightcloud.cn" {
+    include ssh
+}
+</pre>
+
+
+<h4>3.2 resourse</h4>
+
+<h5>3.2.1 基本元素</h5>
+
+<p>对服务器操作的时候，我们需要一些最基本的元素</p>
+
+<ul>
+<li>1 变量
+一种是自定义的变量(比如定义客户端的内网ip)，一种是从客户端取到的变量(比如,客户端cpu的数量)
+自定义的变量，可以直接在manifests中指定，比如</li>
+</ul>
+
+
+<pre>
+[root@master modules]# cat ssh/manifests/params/attributes.pp 
+$port = 6006
+$authorizedKeysFile  = ".ssh/.keys"
+</pre>
+
+
+<p>从客户端取到的变量，puppet默认已经存在一些基本的变量，如：$hostname,$fqdn,$ipaddress
+默认的全部变量信息可以从puppetmaster运行目录下的yaml/facts/下各节点命名的文件中找到
+在resourse的代码中写写变量是可以直接使用的。
+也可以自定义一些变量：http://docs.puppetlabs.com/guides/custom_facts.html</p>
+
+<ul>
+<li>2 模板
+在对系统的管理中，有很多的管理都是对各种配置文件的管理，这些配置文件，整体格式确定，仅仅是一小部分内容有变化，
+这个时候模板就派上用场了
+比如ssh的一个配置文件，在这里为来简明，我把各个文件分开了（当然可以把所有的配置写到一个文件里面）</li>
+</ul>
+
+
+<pre>
+[root@master modules]# tree ssh/manifests/
+ssh/manifests/
+├── init.pp
+├── params
+│   └── attributes.pp #存放变量
+└── resourse #存放实际的resouse
+    ├── sshd_config.pp 
+    └── test.pp
+
+2 directories, 4 files
+</pre>
+
+
+
+
+<pre>
+[root@master modules]# cat ssh/templates/sshd_config.erb 
+Port <%= port %>
+Protocol 2
+SyslogFacility AUTH
+AuthorizedKeysFile <%= authorizedKeysFile %>
+PasswordAuthentication no
+ChallengeResponseAuthentication no
+X11Forwarding no
+Subsystem sftp  /usr/libexec/openssh/sftp-server
+AllowGroups
+PermitUserEnvironment yes
+
+
+[root@master modules]# cat ssh/manifests/params/attributes.pp
+$port = 6006
+$authorizedKeysFile  = ".ssh/.keys"
+
+[root@master modules]# cat ssh/manifests/resourse/sshd_config.pp 
+
+file {
+    "/etc/ssh/sshd_config":
+    mode => '0600',
+    owner => 'root',
+    group => 'root',
+    content => template ("ssh/sshd_config.erb");
+}
+</pre>
+
+
+<p>[root@master modules]# cat ssh/manifests/init.pp
+class ssh {</p>
+
+<pre><code>import "params/*"
+import "resourse/*"
+</code></pre>
+
+<p>}</p>
+
+<p>在templates下创建以erb结尾的文件，里面写上我们需要的配置文件的内容
+&lt;%= Ruby expression %>，可以写ruby的表达式，并写得配置文件中
+&lt;% Ruby code %>　可以直接写ruby的代码
+引用manifests中的变量；这样就可以在客户端上生成我们的ssh的配置文件了</p>
+
+<ul>
+<li>3 文件
+在服务器管理的过程中有时候我们需要下发我们自己的静态文件到客户端，按照module的规范，静态文件存放在files目录下</li>
+</ul>
+
+
+<pre>
+[root@master modules]# tree ssh/files/
+ssh/files/
+└── test.bin
+
+0 directories, 1 file
+</pre>
+
+
+<p>在manifests中通过(&#8220;puppet:///modules/ssh/test.bin&#8221;),可以引用该文件</p>
+
+<pre>
+[root@master modules]# cat ssh/manifests/resourse/test.pp 
+file {
+    "/tmp/test.bin":
+    ensure => 'present',
+    mode => '0700',
+    owner => 'root',
+    group => 'root',
+    source => "puppet:///modules/ssh/test.bin";
+}
+</pre>
+
+
+<h5>3.2.2 操作</h5>
+
+<p>有了这些元素，接下来就可以对服务器做各种操作了</p>
+
+<p>puppet中称为resouse(这里称为操作)，对于操作，puppet也有一些规范</p>
+
+<pre>
+操作类型 {
+    ”操作对象“:
+    属性１ => 变量１,
+    属性２ => 变量２,
+    属性３ => 变量３;
+}
+</pre>
+
+
+<p>我们对服务器的操作，一般可以分为如下几块：</p>
+
+<ul>
+<li>1 对文件/文件夹进行操作 (file)
+puppet中file的功能可以算是异常强大，比如对对文件，文件夹，模板，静态文件的管理，都可以通过file来完成</li>
+</ul>
+
+
+<pre>
+file {
+    "/etc/ssh/sshd_config":
+    ensure => present,
+    mode => '0600',
+    owner => 'root',
+    group => 'root',
+    content => template ("ssh/sshd_config.erb");
+}
+</pre>
+
+
+<p>在file中的第一行，以绝对路径确定了要操作的对象，然后用&#8221;:&#8221;隔开，后面跟上他需要的属性，属性间以”,“，整体以”;“结尾。</p>
+
+<p>属性有很多，这里写了常用的，具体参考（http://docs.puppetlabs.com/references/3.0.latest/type.html#file）</p>
+
+<ul>
+<li>ensure: 确保对象处理某个状态，有４中可选，absent｜present｜file｜directory</li>
+<li>absent：不存在，如果是文件夹，并且下面还有文件，要一并删除，还需要加个“recurse => true”的属性</li>
+<li>present：存在，如果不存在会创建,如果已经存在，与指定内容不一致，会覆盖原有文件</li>
+<li>file：文件类型</li>
+<li>directory：文件夹类型</li>
+<li>mode：确定该对象权限</li>
+<li>owner＆group：确定该对象的用户与用户组</li>
+<li>content：确定该对象的内容，可以直接写文本内容，也可以从模板文件中生成。</li>
+<li><p>source：文件来源，用来下发到客户端静态文件，（该选项与content只能二选一）</p></li>
+<li><p>2 对系统软件进行操作 (package)</p></li>
+</ul>
+
+
+<p>详情见：http://docs.puppetlabs.com/references/3.0.latest/type.html#package</p>
+
+<pre>
+package {
+    ["vim","iproute","curl","mtr"]:
+    ensure => present;
+    ["pppoe","pppoe-conf"]:
+    ensure => absent;
+    }
+</pre>
+
+
+<ul>
+<li>ensure：present｜absent｜pureged｜latest</li>
+<li>present:该软件存在，如果不存在会被安装，也可以写成installed</li>
+<li>abset：该软件不存在，如果存在会被删除</li>
+<li>pureged：连配置文件一起移除该软件</li>
+<li><p>latest：确保该软件包为最新版本</p></li>
+<li><p>3 对系统用户进行操作 (group,user)</p></li>
+</ul>
+
+
+<p>详情见：</p>
+
+<pre><code>http://docs.puppetlabs.com/references/3.0.latest/type.html#group
+http://docs.puppetlabs.com/references/3.0.latest/type.html#user
+</code></pre>
+
+<pre>
+user { "lightcloud":
+    password => 'lightcloud',
+     uid => 999,
+     gid => 999,
+     home => "/home/lightcloud",
+     shell => "/bin/bash";
+     }
+
+
+group { 
+    "lightcloud":
+     ensure => present,
+     members => 'lightcloud',
+     gid => 999;
+     }
+</pre>
+
+
+<ul>
+<li>4 对系统服务进行操作 (service)</li>
+</ul>
+
+
+<p>详情：http://docs.puppetlabs.com/references/3.0.latest/type.html#service</p>
+
+<pre>
+service {
+     "sshd": 
+     enable => 'true',
+     ensure => running; 
+     }
+     
+</pre>
+
+
+<ul>
+<li>enable：ture|false 是否开机启动</li>
+<li><p>ensuer：running|stopped 当前启动或停止</p></li>
+<li><p>5 cron管理</p></li>
+</ul>
+
+
+<p>详情：http://docs.puppetlabs.com/references/3.0.latest/type.html#cron</p>
+
+<pre>
+cron { logrotate:
+    command => "/usr/sbin/logrotate",
+    user => root,
+    hour => 2,
+    minute => 0
+}
+</pre>
+
+
+<ul>
+<li>ensure:是否启用：true|absent</li>
+<li>user:运行该cron的用户</li>
+<li><p>minute＆hour＆hour＆hour＆weekday　这几个参数的用法和crontab是一样的</p></li>
+<li><p>6 执行一个命令(必杀技) (exec)</p></li>
+</ul>
+
+
+<pre>
+exec { "echo 'a' > /tmp/exec":
+    path => "/usr/bin:/usr/sbin:/bin",
+    environment　＝> 'a=b',
+    user => 'root',
+    cwd => "/tmp",
+    creates => "/tmp/exec1",
+    timeout => -1,
+    }
+</pre>
+
+
+<ul>
+<li>path:指定查找命令的路径，如果不写的话，需要写绝对路径</li>
+<li>environment:命令执行时的系统环境变量</li>
+<li>user：指定执行该命令的用户</li>
+<li>cwd：执行命令的目录</li>
+<li>creates：指定命令生成的文件；如果指定了，该文件存在时，不会执行该命令，比如现在的如果/tmp下存在exec1的文件，该命令不被执行</li>
+<li>timeout：命令执行时间，如果超过该时间，命令还未执行完，会被kill掉，负值为不限时</li>
+</ul>
+
+
+<p>这些为常用的操作，puppet现在有48个操作可以使用，详情：http://docs.puppetlabs.com/references/3.0.latest/type.html</p>
+
+<h5>3.2.3 逻辑关系</h5>
+
+<p>有了基本的操作，在加上一些逻辑关系，就可以做出很复杂的功能了</p>
+
+<p>上面介绍的操作，每个操作都有自己的属性，虽然有些属性，功能差不多，但是部分地方还是有差距的，puppet中的各个操作也有公共属性。</p>
+
+<p>目前有11个公共属性，详情：http://docs.puppetlabs.com/references/stable/metaparameter.html</p>
+
+<p>对各个操作进行组合的逻辑情况大概如下：</p>
+
+<p>１：现在执行操作甲，在执行操作乙</p>
+
+<p>有２种思路：</p>
+
+<ul>
+<li>1 条件在甲里（before）</li>
+</ul>
+
+
+<pre>
+file { "/var/nagios/configuration":
+  source  => "...",
+  recurse => true,
+  before  => Exec["nagios-rebuid"]
+}
+
+exec { "nagios-rebuild":
+  command => "/usr/bin/make",
+  cwd     => "/var/nagios/configuration"
+}
+</pre>
+
+
+<ul>
+<li>1 条件在乙里（require）</li>
+</ul>
+
+
+<pre>
+file { "/usr/local/scripts":
+  ensure => directory
+}
+
+file { "/usr/local/scripts/myscript":
+  source  => "puppet://server/module/myscript",
+  mode    => 755,
+  require => File["/usr/local/scripts"]
+}
+</pre>
+
+
+<p>2：当操作甲变化时执行操作乙</p>
+
+<ul>
+<li>1 条件在甲里（notify）</li>
+</ul>
+
+
+<pre>
+file { "/etc/sshd_config":
+    source => "....",
+    notify => Service['sshd']
+}
+
+service { 'sshd':
+    ensure => running
+}
+</pre>
+
+
+<ul>
+<li>2 条件在乙里（subscribe）</li>
+</ul>
+
+
+<pre>
+file { 'nagconf':
+    path   => "/etc/nagios/nagios.conf"
+    source => "puppet://server/module/nagios.conf",
+}
+service { 'nagios':
+    ensure    => running,
+    subscribe => File['nagconf']
+}
+</pre>
+
+
+<p>3：操作需要周期执行
+需要周期执行的东西，我们首相想到的是crontab，crontab的管理更侧重于系统的，而puppet中的操作，有些比较长，也可能会经常变化，有时候放到系统中并不是很好的选择，这个时候就可以使用schedule</p>
+
+<pre>
+schedule { 'daily':
+  period => daily,
+  range  => "2-4"
+}
+</pre>
+
+
+<ul>
+<li>period：运行周期：hourly|daily|weekly|monthly|never</li>
+<li>range：时间范围，在莫个时间内运行</li>
+<li>periodmatch:周期匹配，有效值为数字或者范围</li>
+<li>repeat：重复次数，默认为1，必须为整数</li>
+</ul>
+
+
+<pre>
+exec { "rm /tmp/test.txt":
+  schedule => 'daily'
+}
+</pre>
+
+
+<p>实际这样的功能，借助于corn也同样可以做　:)</p>
+
+<h3>4:杂项</h3>
+
+<p>在实际的管理过程中，通过module我们就可以完成大部分服务的管理，但是有个别情况下，我们需要对实际的服务的个别喧嚣做些调整，有些是对个别节点进行调整，有写时候是对部分节点进行调整，统一管理，这样如果按上面的module来写不仅仅实现起来很麻烦，而有些地方还会有问题，这里需要对module的变量进行一些处理。
+变量不在module中进行定义，转到manifests中</p>
+
+<pre>
+[root@master modules]# tree ssh
+ssh
+├── files
+│   └── test.bin
+├── lib
+├── manifests
+│   ├── init.pp
+│   └── resourse
+│       ├── sshd_config.pp
+│       └── test.pp
+├── spec
+├── templates
+│   └── sshd_config.erb
+└── tests
+    └── init.pp
+
+7 directories, 6 files
+</pre>
+
+
+<p>manifests中不在有关于变量定义的参数</p>
+
+<h4>4.1 默认变量</h4>
+
+<p>在/etc/puppet/manifests/default/下存放一个和module名字一样的文件，存放默认变量</p>
+
+<pre>
+[root@master modules]# cat /etc/puppet/manifests/default/ssh.pp
+$port = 5555
+$authorizedKeysFile = ".ssh/.keys"
+</pre>
+
+
+<p>默认变量在site.pp中全部导入</p>
+
+<pre>
+[root@master modules]# cat /etc/puppet/manifests/site.pp
+import "default/*"
+import "nodes/*"
+</pre>
+
+
+<p>这样module就可以使用那些变量了</p>
+
+<p>让node指点包含ssh模块</p>
+
+<pre>
+node "client.puppet.lightcloud.cn" {
+    include ssh
+}
+</pre>
+
+
+<p>客户端的ssh的配置文件是这样的:</p>
+
+<pre>
+Port 5565
+AuthorizedKeysFile .ssh/.keys
+Protocol 2
+SyslogFacility AUTH
+PasswordAuthentication no
+ChallengeResponseAuthentication no
+X11Forwarding no
+Subsystem sftp  /usr/libexec/openssh/sftp-server
+AllowGroups
+PermitUserEnvironment yes
+</pre>
+
+
+<p>这样所有客户端的ssh端口就都是5565,公钥存储文件全部是　.ssh/.keys</p>
+
+<p>附：在发现将module中的manifest中的有对变量处理的操作的时候，import进来的就问题，将这些操作直接写到init.pp中就可以</p>
+
+<p>目前还不明白，管他呢，就先直接写到init.pp吧</p>
+
+<h4>4.2 节点变量</h4>
+
+<p>那现在我需要将其中的一个node的ssh监听端口变成5566,而且要用puppet管理，将node的配置文件改成这样：</p>
+
+<pre>
+node "master.puppet.lightcloud.cn" {
+    $port = 5566
+    include ssh
+}
+</pre>
+
+
+<p>那么客户端生成的ssh配置文件就是这样的了：</p>
+
+<pre>
+Port 5566
+AuthorizedKeysFile .ssh/.keys
+Protocol 2
+SyslogFacility AUTH
+PasswordAuthentication no
+ChallengeResponseAuthentication no
+X11Forwarding no
+Subsystem sftp  /usr/libexec/openssh/sftp-server
+AllowGroups
+PermitUserEnvironment yes
+</pre>
+
+
+<p>而其他没指定这个port的node的ssh监听端口依然是5565</p>
+
+<h4>4.3 节点继承</h4>
+
+<p>这个本来想写成环境变量哪，不过puppet既然已经称为节点继承了</p>
+
+<p>节点继承是这样的：</p>
+
+<pre>
+node webserver1 {
+    $provider = "VerySlow"
+    include admin::basics
+    include admin::ssh
+    include admin::ntp
+}
+
+node webserver2 {
+    $provider = "WreckSpace"
+    include admin::basics
+    include admin::ssh
+    include admin::ntp
+}
+</pre>
+
+
+<p>在manifests中也是可以写继承的，可以写成这样，比如</p>
+
+<pre>
+node webserver {
+    include admin::basics
+    include admin::ssh
+    include admin::ntp
+}
+
+
+node webserver1 inherits webserver {
+    $provider = "VerySlow"
+}
+
+node webserver2 inherits webserver {
+    $provider = "WreckSpace"
+}
+</pre>
+
+
+<p>这样就在使用的时候就比较方便了，环境变量也是一样的原理</p>
+
+<h3>5 puppet工作原理</h3>
+
+<p>在使用中我们能够看到，puppet没有使用其他的后端存储，比如db，puppet客户端的所有信息都存储在各种配置文件里，在需要的时候puppet对各种存储在配置文件中的代码进行解析(像上面我们看到的，puppet本身的配置文件，manifests的管理与工作，module的管理与工作)；</p>
+
+<p>*　1： 客户端puppetd调用facter，facter会探测出这台主机的一些变量如主机名、内存大小、IP地址等。然后puppetd把这些信息发送到服务器端；这个就是前面提到的puppet定义好的变量，存储在服务端的puppetmaster运行目录下的yaml/facts/下，并一个节点名形成一个单独的配置文件</p>
+
+<p>*　2： 服务器端的puppetmaster检测到客户端的主机名，检测是否经过签名（/etc/puppet/ssl/ca/），经过签名后会到manifest里面对应的node配置(通过/etc/puppet/manifests/site.pp入口文件)，然后对适用与该节点的内容进行解析(facter送过来的信息可以作为变量进行处理的),语法检查、然后会生成一个中间的伪代码，然后再把伪代码发给客户机。</p>
+
+<p>*　3：客户端接收到伪代码之后就会执行，客户端再把执行结果发送给服务器，服务器再把客户端的执行结果写入文件，默认是puppet服务端运行目录下的report文件夹；该文件夹下已各个节点命名形成文件夹，文件夹下存储客户端每次运行的返回值，客户端的每次运行都会形成一个报告文件，以日期＋时间命名</p>
+
+<p>默认的是各种配置文件进行存储，有时候这样感觉并不是很方便，也可以使用各种数据库对数据进行存储
+详情：http://projects.puppetlabs.com/projects/1/wiki/using_stored_configuration</p>
+
+<h3>6 性能优化</h3>
+
+<p>对puppet的基本原理了解后，我们能发现，puppet服务端其实挺累的(客户端仅仅干自己的活，而且是一部分)；而ruby又是一种解析型语言，性能肯定不会非常好；这样呢，我们也不能用高性能的语言把他重写了去，但我们可以在部分地方动手脚来进行性能优化</p>
+
+<p>看看上面的原理，我们能发现，服务端主要在做２件事：
+*　1:针对客户端生成伪代码
+　　这个还没找到很好的解决办法，看到有文章提到过放到memcache上，但是没找到具体方法</p>
+
+<p>*　2:与所有客户端的所有通信</p>
+
+<p>在网上有各种关于这方面的优化的文章，这里我选的是：
+unicorn在性能上和稳定性上都很好，按照也比较方便，与nginx配合也方便
+web服务器方面无疑是nginx了</p>
+
+<p>nginx＋unicorn＋puppet</p>
+
+<p>1:unicorn</p>
+
+<p>安装依赖：</p>
+
+<pre>
+yum install ruby-devel gcc make 
+</pre>
+
+
+<p>安装unicron</p>
+
+<pre>
+gem install unicorn rack
+</pre>
+
+
+<p>复制一个puppet的rack配置文件</p>
+
+<pre>
+cp /usr/share/puppet/ext/rack/files/config.ru /etc/puppet/
+</pre>
+
+
+<p>附：不明白具体是什么意思，看里面的代码，感觉像是对运行puppet时进行一些配置</p>
+
+<p>编写puppet的unicron配置文件</p>
+
+<pre>
+[root@master ssl]# cat /etc/puppet/unicorn.conf
+worker_processes 8
+   working_directory "/etc/puppet"
+   listen '/var/run/puppet/puppetmaster_unicorn.sock', :backlog => 512
+   timeout 120
+   pid "/var/run/puppet/puppetmaster_unicorn.pid"
+
+   preload_app true
+   if GC.respond_to?(:copy_on_write_friendly=)
+     GC.copy_on_write_friendly = true
+   end
+
+   before_fork do |server, worker|
+     old_pid = "#{server.config[:pid]}.oldbin"
+     if File.exists?(old_pid) && server.pid != old_pid
+       begin
+         Process.kill("QUIT", File.read(old_pid).to_i)
+       rescue Errno::ENOENT, Errno::ESRCH
+         # someone else did our job for us
+       end
+     end
+   end
+</pre>
+
+
+<p>接下就可以手工启动unicron了：</p>
+
+<pre>
+unicorn -c unicorn.conf 
+</pre>
+
+
+<p>这里我们可以看到定义来一个sock文件(/var/run/puppet/puppetmaster_unicorn.sock),通过这个sock文件可以与该服务进行通信</p>
+
+<p>但这样不是很专业，写成服务吧</p>
+
+<pre>
+[root@master puppet]# cat /etc/init.d/puppets-unicorn 
+#!/bin/bash
+# unicorn-puppet
+lockfile=/var/lock/puppetmaster-unicorn
+pidfile=/var/run/puppet/puppetmaster_unicorn.pid
+
+RETVAL=0
+DAEMON=/usr/bin/unicorn
+DAEMON_OPTS="-D -c /etc/puppet/unicorn.conf"
+
+
+start() {
+    sudo -u $USER $DAEMON $DAEMON_OPTS
+    RETVAL=$?
+    [ $RETVAL -eq 0 ] && touch "$lockfile"
+    echo
+    return $RETVAL
+}
+
+stop() {
+    sudo -u $USER kill `cat $pidfile`
+    RETVAL=$?
+    echo
+    [ $RETVAL -eq 0 ] && rm -f "$lockfile"
+    return $RETVAL
+}
+
+restart() {
+    stop
+    sleep 1
+    start
+    RETVAL=$?
+    echo
+    [ $RETVAL -ne 0 ] && rm -f "$lockfile"
+    return $RETVAL
+}
+
+condrestart() {
+    status
+    RETVAL=$?
+    [ $RETVAL -eq 0 ] && restart
+}
+
+status() {
+    ps ax | egrep -q "unicorn (worker|master)"
+    RETVAL=$?
+    return $RETVAL
+}
+
+usage() {
+    echo "Usage: $0 {start|stop|restart|status|condrestart}" >&2
+    return 3
+}
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    restart)
+        restart
+        ;;
+    condrestart)
+        condrestart
+        ;;
+    status)
+        status
+        ;;
+    *)
+        usage
+        ;;
+esac
+
+exit $RETVAL
+</pre>
+
+
+<p>2:nginx</p>
+
+<p>epel中yum按照即可</p>
+
+<pre>
+[root@master puppet]# cat /etc/nginx/nginx_puppet.conf 
+upstream puppetmaster_unicorn {
+    server unix:/var/run/puppet/puppetmaster_unicorn.sock fail_timeout=0;
+    }
+
+server {
+    listen 8140;
+    server_name  master.puppet.lightcloud.cn;
+    
+    ssl on;
+    ssl_session_timeout 5m;
+    ssl_certificate /etc/puppet/ssl/certs/master.puppet.lightcloud.cn.pem; 
+    ssl_certificate_key /etc/puppet/ssl/private_keys/master.puppet.lightcloud.cn.pem;
+    ssl_client_certificate /var/lib/puppet/ssl/ca/ca_crt.pem;
+    ssl_ciphers SSLv2:-LOW:-EXPORT:RC4+RSA;
+    ssl_verify_client optional;
+    
+    root /usr/share/empty;
+    
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Client-Verify $ssl_client_verify;
+    proxy_set_header X-Client-DN $ssl_client_s_dn;
+    proxy_set_header X-SSL-Issuer $ssl_client_i_dn;
+    proxy_read_timeout 120;
+    
+    location / {
+    proxy_pass http://puppetmaster_unicorn;
+    proxy_redirect off;
+    }
+}
+</pre>
+
+
+<p>启动unicorn和nginx服务即可,通过这样，不仅仅可以在一个机器上启动多个puppet进程做负载分摊，而且可以跨机器做负载分摊，这样在通信这块就不会有问题了。</p>
+
+  
+  
+  <footer class="meta">
+    
+
+
+
+	<div class="tags"><a class='category' href='/blog/categories/linux/'>linux</a></div>
+
+    
+      
+      <a class="comment" href="/blog/2013/02/26/puppetxue-xi-bi-ji/#disqus_thread">Comments</a>
+      
+      
+    
+  </footer>
+  
+</div>
+</article>
 
 
 	<article class="post"><header>
@@ -659,6 +2049,11 @@ Updated Environment openstack
 	<div class="tags"><a class='category' href='/blog/categories/linux/'>linux</a></div>
 
     
+      
+      <a class="comment" href="/blog/2013/02/26/chefjian-ming-shou-ce/#disqus_thread">Comments</a>
+      
+      
+    
   </footer>
   
 </div>
@@ -854,6 +2249,11 @@ libiconv-1.13.1-1.x86_64.rpm
 	<div class="tags"><a class='category' href='/blog/categories/linux/'>linux</a></div>
 
     
+      
+      <a class="comment" href="/blog/2013/02/26/fpmbao-guan-li/#disqus_thread">Comments</a>
+      
+      
+    
   </footer>
   
 </div>
@@ -864,6 +2264,8 @@ libiconv-1.13.1-1.x86_64.rpm
 	
 	
 	
+	
+	<a class="github" href="https://github.com/halfss" title="GitHub">GitHub</a>
 	
 	
 	<a class="rss" href="/atom.xml" title="RSS">RSS</a>
@@ -895,6 +2297,19 @@ libiconv-1.13.1-1.x86_64.rpm
 </div>
 <script src="/javascripts/phasebeam.js"></script>
 
+
+<script type="text/javascript">
+      var disqus_shortname = 'ljvsss';
+      
+        
+        var disqus_script = 'count.js';
+      
+    (function () {
+      var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+      dsq.src = 'http://' + disqus_shortname + '.disqus.com/' + disqus_script;
+      (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    }());
+</script>
 
 
 
