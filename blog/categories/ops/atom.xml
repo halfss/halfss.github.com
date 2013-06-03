@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: ops | halfss's blog]]></title>
+  <link href="http://halfss.github.com/blog/categories/ops/atom.xml" rel="self"/>
+  <link href="http://halfss.github.com/"/>
+  <updated>2013-06-03T23:05:21+08:00</updated>
+  <id>http://halfss.github.com/</id>
+  <author>
+    <name><![CDATA[halfss]]></name>
+    <email><![CDATA[ljvsss@gmail.com]]></email>
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[salt+自定义returner+fluent+mysql进行结果采集]]></title>
+    <link href="http://halfss.github.com/blog/2013/06/03/salt-plus-zi-ding-yi-returner-plus-fluent-plus-mysqljin-xing-jie-guo-cai-ji/"/>
+    <updated>2013-06-03T23:04:00+08:00</updated>
+    <id>http://halfss.github.com/blog/2013/06/03/salt-plus-zi-ding-yi-returner-plus-fluent-plus-mysqljin-xing-jie-guo-cai-ji</id>
+    <content type="html"><![CDATA[<p>背景:
+salt自带的有很多可选的returner,但是都需要在minion做配置,我感觉这点挺操蛋,
+而且正好我们平台上在使用fluent做采集,于是就自定义一个reutren,然后用fluent采集,处理,入库</p>
+
+<p>过程如下:</p>
+
+<h1>1:mysql表结构:</h1>
+
+<pre>
+CREATE TABLE `fluent`;
+
+CREATE TABLE `salt_returns` (
+  `id` mediumint(9) NOT NULL AUTO_INCREMENT,
+  `jid` char(20) DEFAULT NULL,
+  `host_id` varchar(48) DEFAULT NULL,
+  `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `fun` varchar(30) DEFAULT NULL,
+  `return` text,
+  `success` char(5) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_host_id` (`host_id`)
+)
+</pre>
+
+
+<h1>2:自定义returner</h1>
+
+<p>创建默认自定义return的目录,这个目录虽然是默认的,但是默认并没有创建 :(</p>
+
+<pre>
+      mkdir /srv/salt/_returners
+</pre>
+
+
+<h2>自定义reuters:</h2>
+
+<p>主要就是returner(ret) 这个函数的定义</p>
+
+<pre>
+cat /srv/salt/_returners/lcoal_return.py
+#coding=utf8
+import json
+def __virtual__():
+    return 'local_return'
+def returner(ret):
+    '''
+    Return data to the local file
+    '''
+    result_file = '/var/local/salt/returner'
+    result = file(result_file,'a+')
+    result.write(str(json.dumps(ret.values()))[1:-1]+'\n')
+    result.close()
+</pre>
+
+
+<p>同步到所有节点：</p>
+
+<pre>
+salt '*' saltutil.sync_returners
+</pre>
+
+
+<p>执行命令</p>
+
+<pre>
+salt '*' cmd.run 'ls /var' --return local_return
+</pre>
+
+
+<p>查看结果：</p>
+
+<pre>
+cat /var/log/salt/returner
+"cmd.run", "20130524052158870765", "cache\ncvs\ndb\nempty\ngames\nlib\nlocal\nlock\nlog\nmail\nnis\nopt\npreserve\nrun\nspool\ntmp\nwww\nyp", "minion1", true
+</pre>
+
+
+<h1>3fluent采集</h1>
+
+<h2>客户端配置:</h2>
+
+<pre>
+<source>
+  type tail
+  path /var/log/salt/returner
+  pos_file /tmp/return_pos.log
+  tag os.salt
+  format /\"(?<fun>.*)\", \"(?<jid>\d+)\", (?<return>.*), \"(?<id>.*)\", (?<success>.*)/
+</source>
+
+<match os.*>
+    type forward
+    flush_interval 1s
+    <server>
+        host 
+        port 
+    </server>
+</match>
+</pre>
+
+
+<p>服务端配置:</p>
+
+<pre>
+<source>
+  type forward
+  port 24224
+  bind 0.0.0.0
+</source>
+
+<match host.os.salt>
+  type mysql
+  host localhost
+  database fluent
+  username fluent
+  password fluent
+  key_names jid,id,fun,return,success
+  sql INSERT INTO salt_returns (jid,host_id,fun,`return`,success) VALUES (?,?,?,?,?)
+  flush_interval 5s
+</match>
+</pre>
+
+
+<p>结果查询:</p>
+
+<pre>
+select * from salt_returns where success is not NULL and fun='cmd.run' limit 1;
++------+----------------------+-----------------------------------------+---------------------+---------+---------+---------+
+| id | jid | host_id | time | fun | return | success |
++------+----------------------+-----------------------------------------+---------------------+---------+---------+---------+
+| 2571 | 20130531184127393793 | test | 2013-05-31 10:38:29 | cmd.run | "/root" | true |
++------+----------------------+-----------------------------------------+---------------------+---------+---------+---------+
+</pre>
+
+
+
+]]></content>
+  </entry>
+  
+</feed>
