@@ -9,9 +9,8 @@
   <meta name="author" content="halfss">
 
   
-  <meta name="description" content="背景:
-salt自带的有很多可选的returner,但是都需要在minion做配置,我感觉这点挺操蛋,
-而且正好我们平台上在使用fluent做采集,于是就自定义一个reutren,然后用fluent采集,处理,入库 过程如下: 1:mysql表结构: CREATE TABLE `fluent`; &hellip;">
+  <meta name="description" content="1:nodegroup: salt的命令管理在对批量的机器进行操作(如果是单个的机器进行命令操作,ssh是最直接的方法)的时候才能更显示出他的部分强大
+有时候我们通过target进行各种匹配,虽然可以写的很强大,强大到我们可以匹配出任何的满足我们需求的节点,但是写这个target的时候, &hellip;">
   
 
   <!-- http://t.co/dKP3o1e -->
@@ -78,6 +77,235 @@ salt自带的有很多可选的returner,但是都需要在minion做配置,我感
     <div id="content">
       <div class="blog-index">
   
+  
+  
+    <article>
+      
+  <header>
+    
+      <h1 class="entry-title"><a href="/blog/2013/06/15/saltxiang-guan-shi-yong/">Salt相关使用</a></h1>
+    
+    
+      <p class="meta">
+        
+
+
+
+
+
+
+
+
+  
+
+
+<time datetime="2013-06-15T10:34:00+08:00" pubdate data-updated="true">Jun 15<span>th</span>, 2013</time>
+        
+         | <a href="/blog/2013/06/15/saltxiang-guan-shi-yong/#disqus_thread">Comments</a>
+        
+      </p>
+    
+  </header>
+
+
+  <div class="entry-content"><h1>1:nodegroup:</h1>
+
+<p>salt的命令管理在对批量的机器进行操作(如果是单个的机器进行命令操作,ssh是最直接的方法)的时候才能更显示出他的部分强大
+有时候我们通过target进行各种匹配,虽然可以写的很强大,强大到我们可以匹配出任何的满足我们需求的节点,但是写这个target的时候,如果过于复杂就要花费稍微长点的时间,所以在这个时候nodegroup可以很满足我们的需求,但是呢,直接写这个group分组也是很麻烦的,有没有更好的方法呢?</p>
+
+<p>前提:master支持部分配置的动态加载,比如nodegroup,实现的方式是动态的读取/etc/salt/master.d/*.conf内容,我们只要去更新nodegroup中的内容就可以了</p>
+
+<p>我这里有多个用户都会去操作(每个用户管理的salt的机器不一样)salt,而salt-master同一个配置只能加载一次,所以我只能去维护一个定义了nodegroup文件</p>
+
+<p>实现方式:</p>
+
+<p>每个salt用户(在salt服务器上也是一个用户:普通用户)的~/groups文件夹中定义了一个个文件,每个文件有一堆的minion ID列表,然后写个脚本去读取(~/groups)文件夹中的所有文件,然后生产跟文件名对应的group名</p>
+
+<p>如下:</p>
+
+<pre>
+ls ~/groups/
+
+test1.txt test2.txt test3.txt
+</pre>
+
+
+<p>然后执行如下命令:</p>
+
+<pre>
+[halfss@salt ~]$ opstack update_groups
+
+组更新完毕
+</pre>
+
+
+<p>组生成成功后:</p>
+
+<pre>
+[halfss@salt ~]$ salt -N test1 test.ping
+
+minion1:
+
+    True
+
+minion2:
+
+    True
+
+minion3:
+
+    True
+</pre>
+
+
+<p>update_groups的代码大概(我线上部分调整后直接粘贴过来,未测试)如下:</p>
+
+<pre>
+def update_groups():
+
+  file_dir = '%s/groups' % os.path.expandvars('$HOME')
+
+  groups_re = '#%s_start\n.*\n#%s_end\n' % (user,user)
+
+  groups = ''
+
+  for group_file in os.listdir(file_dir):
+
+    if group_file.split('.')[-1] != 'txt':
+
+      continue
+
+    group_file = '%s/%s' % (file_dir,group_file)
+
+    servers = [ server[:1] for server  file(group_file).readlines()]
+
+    groups += " %s: L@%s\n" % (group_file.split('/')[-1].split('.')[0],','.join(servers))
+
+  groups_tmp = '#%s_start\n%s#%s_end\n' % (user,groups,user)
+
+  nodegroups = file('/etc/salt/master.d/nodegroups.conf','r').read()
+
+  nodegroups,re_count = re.subn(r'%s' % groups_re, groups_tmp,node groups
+
+  if re_count == 0:
+
+    nodegroups += groups_tmp
+
+  file('/etc/salt/master.d/nodegroups.conf','w').write(nodegroups)
+
+  print "组更新完毕")
+</pre>
+
+
+<h1>2:复杂的sls</h1>
+
+<p>有些时候默认的提供的sls的语法并不能满足实际需求,好在灵活强大的salt已经支持sls拓展</p>
+
+<p>http://docs.saltstack.com/topics/tutorials/starting_states.html</p>
+
+<p>可以直接写python代码,只要返回值类似yaml风格一样东西就OK</p>
+
+<p>比如我要对节点的hosts中的某个域名做管理,找最近的IP去解析</p>
+
+<p>实例如下:</p>
+
+<pre>
+#!py                   #注意用python来写的sls用#!py开头
+import os
+import re
+
+def run():
+  hosts = [  ＃这里的IP是模拟IP
+   "192.168.1.2",
+   "10.0.0.1",
+  ]
+
+  hosts_time = {}
+  for host in hosts:
+    cmd = "ping -c 4 %s" % host
+    content = os.popen(cmd).read()
+    use_time = re.findall(r'time=(.*)ms',content)
+    hosts_time[host] = sum([float(u) for u in use_time])
+  hosts_time = sorted(hosts_time.items(),key=lambda hosts_time:hosts_time[1])
+  ip = hosts_time[0][0]
+
+  dict = {
+      'download':{'host.present':[{'ip':ip,'names':['download.cn']}]}
+    }
+  return dict
+</pre>
+
+
+<p>salt会用yaml去解析返回的这个字典</p>
+
+<h1>3：自定义动态garins</h1>
+
+<p>salt中自定义的minion ID，一般遵守fqdn规范，以尽可能他提供更多的信息方便管理员进行管理，但是fqdn不是万能的，不一定能包含需要的所有信息，这个时候自定义的grains就有用了</p>
+
+<p>这里自定义了个grain，会根据一个URL返回的值生产一个字典，返回给salt解析</p>
+
+<pre>
+cat /srv/salt/_grains/ops_user.py
+#!/usr/bin/env python
+
+import urllib2
+
+def ops_user():
+  pillars = {}
+  ops_user = urllib2.urlopen('https://test.com/api/opsuser').read()
+  ops_user = ops_user.split(',')
+  pillars['ops_user'] = ops_user
+  return pillars
+
+if __name__ == '__main__':
+  print ops_user()
+</pre>
+
+
+<p>然后同步grains，之后所有的minion都会有和这个grain的属性了
+salt &#8216;*&#8217; saltutil.sync_grains</p>
+
+<p>不过这里有一个小问题，这个granis是静态值，除非指定节点去刷新，否则grains不会改变</p>
+
+<h1>4 syndic</h1>
+
+<p>salt的master和minion的交互很大程度上都和网络有关系,比如在管理多个国家的机器的时候(比如大中华局域网),这个时候,用一个master来管理,先不说体验上的问题,本身就是不现实的,这个时候怎么搞呢? 分布式</p>
+
+<p>一个master控制多个master,同时被控制的master又可以控制很多的minion</p>
+
+<p>这个时候咱们的问题就好处理的多了,当然不能说完全没有问题</p>
+
+<p>总master</p>
+
+<p>指定开启syndic模式,这样消息才能发送到syndic节点上</p>
+
+<p>/etc/salt/master</p>
+
+<p>order_masters: True</p>
+
+<p>制定要总master节点,启动syndic服务</p>
+
+<p>被管理的master:</p>
+
+<p>/etc/salt/master</p>
+
+<p>syndic_master: salt.lightcloud.cn</p>
+
+<p>/etc/init.d/salt-syndic start</p>
+
+<p>比如总master为master,syndic节点为syndic1</p>
+
+<p>将minion1的master制定为syndic,启动minion服务</p>
+
+<p>然后在syndic1节点就可以看到未接受的key,接受后,syndic就可以管理minion1了,同时master也可以管理minion1了</p>
+
+<p>问题:key的管理这块,还是仅仅minoin直接连接的节点才可以管理,也就是说刚才minion1的接受key的那个操作,只有在syndic1才可以完成,master是不行的</p>
+</div>
+  
+  
+
+
+    </article>
   
   
     <article>
@@ -2891,6 +3119,10 @@ libiconv-1.13.1-1.x86_64.rpm
   <ul id="recent_posts">
     
       <li class="post">
+        <a href="/blog/2013/06/15/saltxiang-guan-shi-yong/">salt相关使用</a>
+      </li>
+    
+      <li class="post">
         <a href="/blog/2013/06/03/salt-plus-zi-ding-yi-returner-plus-fluent-plus-mysqljin-xing-jie-guo-cai-ji/">salt+自定义returner+fluent+mysql进行结果采集</a>
       </li>
     
@@ -2904,10 +3136,6 @@ libiconv-1.13.1-1.x86_64.rpm
     
       <li class="post">
         <a href="/blog/2013/02/26/chefjian-ming-shou-ce/">chef简明手册</a>
-      </li>
-    
-      <li class="post">
-        <a href="/blog/2013/02/26/fpmbao-guan-li/">fpm包管理</a>
       </li>
     
   </ul>
