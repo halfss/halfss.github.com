@@ -4,7 +4,7 @@
   <title><![CDATA[halfss's blog]]></title>
   <link href="http://halfss.github.com/atom.xml" rel="self"/>
   <link href="http://halfss.github.com/"/>
-  <updated>2013-06-16T07:39:54+08:00</updated>
+  <updated>2013-06-16T08:10:47+08:00</updated>
   <id>http://halfss.github.com/</id>
   <author>
     <name><![CDATA[halfss]]></name>
@@ -74,7 +74,7 @@ def update_groups():
     if group_file.split('.')[-1] != 'txt':
       continue
     group_file = '%s/%s' % (file_dir,group_file)
-    servers = [ server[:1] for server file(group_file).readlines()]
+    servers = [ server[:1] for server  file(group_file).readlines()]
     groups += " %s: L@%s\n" % (group_file.split('/')[-1].split('.')[0],','.join(servers))
   groups_tmp = '#%s_start\n%s#%s_end\n' % (user,groups,user)
   nodegroups = file('/etc/salt/master.d/nodegroups.conf','r').read()
@@ -99,12 +99,12 @@ def update_groups():
 <p>实例如下:</p>
 
 <pre>
-#!py #注意用python来写的sls用#!py开头
+#!py                   #注意用python来写的sls用#!py开头
 import os
 import re
 
 def run():
-  hosts = [ ＃这里的IP是模拟IP
+  hosts = [  ＃这里的IP是模拟IP
    "192.168.1.2",
    "10.0.0.1",
   ]
@@ -203,12 +203,12 @@ syndic_master: salt.lightcloud.cn
 <p>官方的例子中写的很清晰,比如master配置文件中如下的配置</p>
 
 <pre>
-external_auth: #制定启用认证模块
+external_auth:   #制定启用认证模块
 
-  pam: #制定所使用的认证模块,还有其他的认证模块可以使用比如ldap
-    thatch: #制定用户名(master服务器的系统用户名)
-      - 'web*': #制定匹配的minion 这里有垫操蛋的是,不能使用compund模式
-        - test.* #这里指定了可以使用那些模块,后面是并列的
+  pam:    #制定所使用的认证模块,还有其他的认证模块可以使用比如ldap
+    thatch:  #制定用户名(master服务器的系统用户名)
+      - 'web*':   #制定匹配的minion 这里有垫操蛋的是,不能使用compund模式
+        - test.*   #这里指定了可以使用那些模块,后面是并列的
         - network.*
     steve:
       - .*
@@ -241,11 +241,11 @@ external_auth:
 /usr/lib/python2.6/site-packages/salt
 diff client.py client.py_back
 969,971d968
-< if self.salt_user != 'root':
+<         if self.salt_user != 'root':
 
-< tgt = '%s and G@ops_user:%s' % (tgt,self.salt_user)
+<             tgt = '%s and G@ops_user:%s' % (tgt,self.salt_user)
 
-< expr_form = 'compound'
+<             expr_form = 'compound'
 979a977
 >
 </pre>
@@ -263,13 +263,13 @@ diff client.py client.py_back
 /usr/lib/python2.6/site-packages/salt/master.py
 
             cdir = os.path.join(self.opts['cachedir'], 'minions', load['id'])
-            if not os.path.isdir(cdid):
+            if not os.path.isdir(cdir):
                 os.makedirs(cdir)
             datap = os.path.join(cdir, 'data.p')
-+ file('/var/log/salt/minions','w+').write(str({
-+ 'minion_id':load['id'],
-+ 'grains': load['grains'],
-+ 'pillar': data})+'\n')
++            file('/var/log/salt/minions','w+').write(str({
++                                'minion_id':load['id'],
++                                'grains': load['grains'],
++                                'pillar': data})+'\n')
             with salt.utils.fopen(datap, 'w+') as fp_:
                 fp_.write(
                         self.serial.dumps(
@@ -278,7 +278,75 @@ diff client.py client.py_back
 </pre>
 
 
+<h1>7 自定义salt　modules</h1>
 
+<p>salt中自定义modules,实在是太简单了,为了让你详细,先来个最简单的</p>
+
+<pre>
+cat /srv/salt/_modules/custom.py
+def test():
+  return 'i am test'
+</pre>
+
+
+<p>同步到所有minion
+salt &#8216;*&#8217; saltutil.sync_modules</p>
+
+<p>直接就可以使用了</p>
+
+<pre>
+[root@localhost _modules]# salt '*'  custom.test　　＃调用方法,文件名.方法名
+minion1:
+    i am test
+</pre>
+
+
+<p>这个是最简单的;但是有时候,我们需要实现一些比较复杂的功能,而这些功能有的salt已经帮我们实现了,我们仅仅需要直接拿来用就好了;还有的我们需要使用minion的中grains或者pillar的信息;在有其他的功能,我们就需要自己是实现了,先看看刚才的２个怎么搞</p>
+
+<ul>
+<li>1 调用先有的module来显现自定义module中需要的功能</li>
+</ul>
+
+
+<p> <strong>salt</strong>　salt内置的一个字典,包含了所有的salt的moudle</p>
+
+<pre>
+[root@localhost _modules]# cat /srv/salt/_modules/custom.py
+def test(cmd):
+  return __salt__['cmd.run'](cmd)
+
+[root@localhost _modules]# salt '*'  custom.test ls
+minion1:
+    '
+    anaconda-ks.cfg
+    install.log
+    install.log.syslog
+    match.py
+    salt
+    test.py
+</pre>
+
+
+<p>是不是有点想想不到的简单?</p>
+
+<ul>
+<li>2 使用gains中信息</li>
+</ul>
+
+
+<pre>
+[root@localhost _modules]# cat /srv/salt/_modules/custom.py
+def test():
+  return  __grains__['id']
+
+[root@localhost _modules]# salt '*'  custom.test
+minion1:
+    minion1
+</pre>
+
+
+<p>将自定义的modules文件放在配置文件中定义的file_roots(默认为/srv/salt)下的 _modules目录下,会在执行highstate的时候自动同步,或者按照如下方式,手工推送
+ salt &#8217;<em>&#8217; saltutil.sync_modules 或者　salt &#8217;</em>&#8217; saltutil.sync_all</p>
 ]]></content>
   </entry>
   
