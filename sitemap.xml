@@ -2,42 +2,58 @@
 <urlset xmlns='http://www.sitemaps.org/schemas/sitemap/0.9'>
     <url>
         <loc>http://halfss.github.com/blog/2013/02/26/fpmbao-guan-li/</loc>
-        <lastmod>2013-05-22T20:38:57+08:00</lastmod>
+        <lastmod>2013-09-04T17:48:02+08:00</lastmod>
     </url>
     <url>
         <loc>http://halfss.github.com/blog/2013/02/26/chefjian-ming-shou-ce/</loc>
-        <lastmod>2013-05-22T20:38:57+08:00</lastmod>
+        <lastmod>2013-09-04T17:48:02+08:00</lastmod>
     </url>
     <url>
         <loc>http://halfss.github.com/blog/2013/02/26/puppetxue-xi-bi-ji/</loc>
-        <lastmod>2013-05-22T20:38:57+08:00</lastmod>
+        <lastmod>2013-09-04T17:48:02+08:00</lastmod>
     </url>
     <url>
         <loc>
             http://halfss.github.com/blog/2013/05/22/yun-wei-zi-dong-hua-zhi-saltxue-xi-bi-ji/
         </loc>
-        <lastmod>2013-05-22T20:42:39+08:00</lastmod>
+        <lastmod>2013-09-04T17:48:02+08:00</lastmod>
     </url>
     <url>
         <loc>
             http://halfss.github.com/blog/2013/06/03/salt-plus-zi-ding-yi-returner-plus-fluent-plus-mysqljin-xing-jie-guo-cai-ji/
         </loc>
-        <lastmod>2013-06-16T07:39:35+08:00</lastmod>
+        <lastmod>2013-09-04T17:48:02+08:00</lastmod>
     </url>
     <url>
         <loc>http://halfss.github.com/blog/2013/06/15/saltxiang-guan-shi-yong/</loc>
-        <lastmod>2013-06-16T08:10:42+08:00</lastmod>
+        <lastmod>2013-09-04T17:48:02+08:00</lastmod>
+    </url>
+    <url>
+        <loc>http://halfss.github.com/404.html</loc>
+        <lastmod>2013-09-04T17:48:02+08:00</lastmod>
+    </url>
+    <url>
+        <loc>http://halfss.github.com/archives/</loc>
+        <lastmod>2013-09-04T17:48:02+08:00</lastmod>
     </url>
     <url>
         <loc>http://halfss.github.com/blog/archives/</loc>
-        <lastmod>2013-06-16T08:10:42+08:00</lastmod>
+        <lastmod>2013-09-04T17:48:02+08:00</lastmod>
+    </url>
+    <url>
+        <loc>http://halfss.github.com/blog/</loc>
+        <lastmod>2013-09-04T17:48:02+08:00</lastmod>
+    </url>
+    <url>
+        <loc>http://halfss.github.com/humans.txt</loc>
+        <lastmod>2013-09-04T17:44:50+08:00</lastmod>
     </url>
     <url>
         <loc>http://halfss.github.com/</loc>
-        <lastmod>2013-06-16T08:10:42+08:00</lastmod>
+        <lastmod>2013-09-04T17:48:02+08:00</lastmod>
     </url>
     <url>
         <loc>http://halfss.github.com/robots.txt</loc>
-        <lastmod>2013-05-22T20:38:57+08:00</lastmod>
+        <lastmod>2013-09-04T17:48:02+08:00</lastmod>
     </url>
 </urlset>

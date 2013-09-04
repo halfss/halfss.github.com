@@ -4,7 +4,7 @@
   <title><![CDATA[Category: linux | halfss's blog]]></title>
   <link href="http://halfss.github.com/blog/categories/linux/atom.xml" rel="self"/>
   <link href="http://halfss.github.com/"/>
-  <updated>2013-06-16T08:10:47+08:00</updated>
+  <updated>2013-09-04T17:48:14+08:00</updated>
   <id>http://halfss.github.com/</id>
   <author>
     <name><![CDATA[halfss]]></name>
@@ -52,7 +52,10 @@
  3:实时管理
             1:cmd.run
             2:module
-  4:无master
+ 4:其他
+            1:无master
+            2:peer
+            3:runner
 </code></pre>
 
 <h2>4:salt开发</h2>
@@ -370,9 +373,37 @@ salt的整个架构都是基于消息来实现.所以能够提供横强的拓展
             比如：
                 查看所有节点磁盘使用情况
                     salt '*' disk.usage
- 4：无master
-      文档：http://docs.saltstack.com/topics/tutorials/quickstart.html
-      主要应该在测试和salt单机管理的时候
+ 4：其他
+        1:无master
+          文档：http://docs.saltstack.com/topics/tutorials/quickstart.html
+          主要应该在测试和salt单机管理的时候
+        2:peer
+          文档:http://docs.saltstack.com/ref/peer.html
+          提供了一种让摸个或者默写minion通过master管理其他minoin的方法
+          既然minion都可以管理其他minion了,肯定要涉及到权限的问题,否则就乱了;peer的权限设置在master配置文件的peer块
+          风格如下:
+            peer:
+              .*: #有管理权限的minion节点
+                - .*   #可以使用的module
+          例子:
+            peer:
+              .*example.com:   #ID以example.com结尾的节点
+                - test.*   #可以使用test模块
+                - ps.*  #可以使用ps模块
+                - pkg.*   #可以使用pkg模块
+       3:runner
+         官方的想法是提供了一种灵活的,快捷的调用salt的方式,通过salt-run就可以直接在minion上运行自己的代码,但是我感觉有点多余;我直接在master写也可以啊
+         定义runner代码目录:
+            master配置文件:
+                runner_dirs: ['/srv/salt/_runner',]
+         测试:
+            cat /srv/salt/_runner/foo.py
+            def test():
+                print "True"
+            salt-run foo.test
+                True
+            当然这里应该写的是关于salt的调用
+            官方自带的几个runner:https://github.com/saltstack/salt/tree/develop/salt/runners
 </code></pre>
 
 <h2>4:salt开发</h2>

@@ -5,11 +5,12 @@
 	<script data-cfasync="false" type="text/javascript" src="//use.typekit.net/axj3cfp.js"></script>
 	<script data-cfasync="false" type="text/javascript">try{Typekit.load();}catch(e){}</script>
 	<meta charset="utf-8">
-	<title>fpm包管理  | halfss's blog</title>
+	<title>OOPS! 錯誤 404 找不到你要找的文章嗎？  | halfss's blog</title>
 
 <meta name="author" content="halfss"> 
 
-<meta name="description" content="1简介 fpm:对包的类型进行转换,从一种类型转换到另一种类型 #包作者整理了PPT: https://docs.google.com/presentation/d/11TOsLeg58w7GCt6i7y1VIQWnUYotsx0MzGMJ_dWUJNo/present#slide=id.i0 &hellip;"> <meta name="keywords" content="">
+<meta name="description" content="我們會儘快在短時間內，請我們唯一的開發者修好這個 bug。（才怪）
+以下最近的文章找找看有沒有幫助？ 2013 salt相关使用 Jun 15 dev, ops Comments "> <meta name="keywords" content="">
 
 	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 
@@ -94,182 +95,73 @@ $(document).ready(
 
 </header>
 
-	<div id="content" class="inner"><article class="post">
-	<h2 class="title">Fpm包管理</h2>
-	<div class="entry-content"><h3>1简介</h3>
+	<div id="content" class="inner"><article class="page">
+    <div class="entry-content"><p>我們會儘快在短時間內，請我們唯一的開發者修好這個 bug。（才怪）</p>
+<p>以下最近的文章找找看有沒有幫助？</p>
+<section id="details"></section>
+<div id="blog-archives" class="missing">
 
-<p>fpm:对包的类型进行转换,从一种类型转换到另一种类型</p>
+<article>
+  
 
-<p>#包作者整理了PPT:</p>
 
-<pre>
-https://docs.google.com/presentation/d/11TOsLeg58w7GCt6i7y1VIQWnUYotsx0MzGMJ_dWUJNo/present#slide=id.i0
-</pre>
+	
+	
+	<section class="archives"><h1 class="year">2013</h1>
 
+<article>
+	<h2 class="title"><a href="/blog/2013/06/15/saltxiang-guan-shi-yong/">salt相关使用</a></h2>
+	<div class="meta">
+		<div class="date">Jun 15</div>
+		
 
-<p>目前源类型支持:</p>
+<div class="tags">
 
-<ul>
-<li><p>dir:二进制包</p></li>
-<li><p>rpm:redhat系列的包</p></li>
-<li><p>gem:ruby的包 #fpm就是用ruby写的,也是gem中的一个包</p></li>
-<li><p>python:python的模块</p></li>
-</ul>
-
-
-<p>目标类型:</p>
-
-<ul>
-<li>rpm</li>
-<li>deb</li>
-<li>solaris</li>
-<li>puppet</li>
-</ul>
-
-
-<h3>2安装</h3>
-
-<h4>2.1安装环境</h4>
-
-<p>fpm是ruby写的,系统环境需要rbuy</p>
-
-<p>#ruby版本要大于1.8.5</p>
-
-<p>在centos5上默认的源的ruby版本为1.8.5,</p>
-
-<p>需添加一下源:</p>
-
-<pre>
-
-rpm -ivh http://yum.puppetlabs.com/el/5/products/x86_64/puppetlabs-release-5-6.noarch.rpm
-
-</pre>
-
-
-<p>该源中的ruby版本为1.8.7</p>
-
-<pre>
-
-yum install -y ruby ruby-devel rubygems rpm-build
-
-</pre>
-
-
-<h4>2.2安装fpm</h4>
-
-<pre>
-gem install fpm
-</pre>
-
-
-<h3>3使用</h3>
-
-<h4>3.1常用语法</h4>
-
-<pre>
-
-常用命令:
-
-fpm -s 源类型 -t 目标类型 [options]
-
-
-
-常用的options:
-
--n 生成的package名字
-
--p 生成的package文件输出位置
-
--v 生成的package版本
-
--d 生成的package依赖于什么软件,通常为-d 'name' 或这 -d 'name > version'
-
--a 系统架构名称,如果是noarch则为'-a all' 或者 '-a native'
-
---description 软件包描述
-
---conflicts 与其他什么软件冲突
-
-
-
-详情:fpm -h
-
-</pre>
-
-
-<h4>3.2示例</h4>
-
-<pre>
-
-[root@localhost test]# tar -xf libiconv-1.13.1.tar.gz 
-
-[root@localhost test]# cd libiconv-1.13.1
-
-[root@localhost libiconv-1.13.1]# ./configure --prefix=/usr
-
-
-
-[root@localhost libiconv-1.13.1]# make
-
-[root@localhost libiconv-1.13.1]# mkdir /tmp/libiconv-1.13.1
-
-[root@localhost libiconv-1.13.1]# make install DESTDIR=/tmp/libiconv-1.13.1
-
-
-
-[root@localhost libiconv-1.13.1]# ls /tmp/libiconv-1.13.1/
-
-usr
-
-
-
-[root@localhost rpm_test]# ls
-
-[root@localhost rpm_test]# fpm -s dir -t rpm -n libiconv -v 1.13.1 -C /tmp/libiconv-1.13.1 usr
-
-[root@localhost rpm_test]# ls
-
-libiconv-1.13.1-1.x86_64.rpm
-
-[root@localhost rpm_test]# rpm -qpl libiconv-1.13.1-1.x86_64.rpm 
-
-/usr/bin/iconv
-
-/usr/include/iconv.h
-
-/usr/include/libcharset.h
-
-…….
-
-</pre>
-
-
-<p>参考:</p>
-
-<ul>
-<li><p>http://waydee.blog.51cto.com/4677242/834002</p></li>
-<li><p>http://blog.sina.com.cn/s/blog_704836f40101fscj.html</p></li>
-<li><p>http://www.ducea.com/2011/08/31/build-your-own-packages-easily-with-fpm/</p></li>
-</ul>
+	<a class='category' href='/blog/categories/dev/'>dev</a>, <a class='category' href='/blog/categories/ops/'>ops</a>
 
 </div>
 
 
-<div class="meta">
-	<div class="date">
+	    
+	    <span class="comments"><a href="/blog/2013/06/15/saltxiang-guan-shi-yong/#disqus_thread">Comments</a></span>
+	    
+	</div>
+</article>
+</article>
 
-
-
-
-
-
-
-
+<article>
   
 
 
-<time datetime="2013-02-26T16:38:00+08:00" pubdate data-updated="true">Feb 26<span>th</span>, 2013</time></div>
-	
+<article>
+	<h2 class="title"><a href="/blog/2013/06/03/salt-plus-zi-ding-yi-returner-plus-fluent-plus-mysqljin-xing-jie-guo-cai-ji/">salt+自定义returner+fluent+mysql进行结果采集</a></h2>
+	<div class="meta">
+		<div class="date">Jun  3</div>
+		
+
+<div class="tags">
+
+	<a class='category' href='/blog/categories/ops/'>ops</a>
+
+</div>
+
+
+	    
+	    <span class="comments"><a href="/blog/2013/06/03/salt-plus-zi-ding-yi-returner-plus-fluent-plus-mysqljin-xing-jie-guo-cai-ji/#disqus_thread">Comments</a></span>
+	    
+	</div>
+</article>
+</article>
+
+<article>
+  
+
+
+<article>
+	<h2 class="title"><a href="/blog/2013/05/22/yun-wei-zi-dong-hua-zhi-saltxue-xi-bi-ji/">运维自动化之salt学习笔记</a></h2>
+	<div class="meta">
+		<div class="date">May 22</div>
+		
 
 <div class="tags">
 
@@ -278,30 +170,66 @@ libiconv-1.13.1-1.x86_64.rpm
 </div>
 
 
-	
-		<span class="comments"><a href="/blog/2013/02/26/fpmbao-guan-li/#disqus_thread">Comments</a></span>
-	
-</div></article>
-
-	<div class="share">
-	<div class="addthis_toolbox addthis_default_style ">
-	
-	
-	<a class="addthis_button_tweet"></a>
-	
-	
-<!---	<a class="addthis_counter addthis_pill_style"></a> --->
+	    
+	    <span class="comments"><a href="/blog/2013/05/22/yun-wei-zi-dong-hua-zhi-saltxue-xi-bi-ji/#disqus_thread">Comments</a></span>
+	    
 	</div>
-  <script type="text/javascript" src="http://s7.addthis.com/js/250/addthis_widget.js#pubid="></script>
+</article>
+</article>
+
+<article>
+  
+
+
+<article>
+	<h2 class="title"><a href="/blog/2013/02/26/puppetxue-xi-bi-ji/">puppet学习笔记</a></h2>
+	<div class="meta">
+		<div class="date">Feb 26</div>
+		
+
+<div class="tags">
+
+	<a class='category' href='/blog/categories/linux/'>linux</a>
+
 </div>
 
 
+	    
+	    <span class="comments"><a href="/blog/2013/02/26/puppetxue-xi-bi-ji/#disqus_thread">Comments</a></span>
+	    
+	</div>
+</article>
+</article>
 
-<section id="comment">
-    <h2 class="title">Comments</h2>
-    <div id="disqus_thread" aria-live="polite"><noscript>Please enable JavaScript to view the <a href="http://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<article>
+  
+
+
+<article>
+	<h2 class="title"><a href="/blog/2013/02/26/chefjian-ming-shou-ce/">chef简明手册</a></h2>
+	<div class="meta">
+		<div class="date">Feb 26</div>
+		
+
+<div class="tags">
+
+	<a class='category' href='/blog/categories/linux/'>linux</a>
+
 </div>
-</section>
+
+
+	    
+	    <span class="comments"><a href="/blog/2013/02/26/chefjian-ming-shou-ce/#disqus_thread">Comments</a></span>
+	    
+	</div>
+</article>
+</article>
+
+</div>
+</div>
+</article>
+
+
 </div>
 	<footer id="footer" class="inner">Copyright &copy; 2013
 
@@ -323,10 +251,7 @@ Powered by Octopress.
       var disqus_shortname = 'halfss';
       
         
-        // var disqus_developer = 1;
-        var disqus_identifier = 'http://halfss.github.com/blog/2013/02/26/fpmbao-guan-li/';
-        var disqus_url = 'http://halfss.github.com/blog/2013/02/26/fpmbao-guan-li/';
-        var disqus_script = 'embed.js';
+        var disqus_script = 'count.js';
       
     (function () {
       var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
