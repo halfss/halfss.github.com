@@ -4,7 +4,7 @@
   <title><![CDATA[Category: linux | halfss's blog]]></title>
   <link href="http://halfss.github.com/blog/categories/linux/atom.xml" rel="self"/>
   <link href="http://halfss.github.com/"/>
-  <updated>2013-09-05T15:15:59+08:00</updated>
+  <updated>2013-09-05T19:58:47+08:00</updated>
   <id>http://halfss.github.com/</id>
   <author>
     <name><![CDATA[halfss]]></name>
@@ -97,7 +97,7 @@ chef    从研发的角度去做配置管理(研发人员做给运维用的)   �
   以上2者都比较侧重于状态的管理,对单个或者多个状态的临时调整或者管理较差
   2个都有商业版,让我这个用开源版的很自卑
 
- 这里我们也能看到,2个配置功能都没能达到我理想中的状态,那就暂用chef吧,直到有一天,了解到了saltstack看到了这句话：“ 系统配置的自动化不仅可预测,可重复, 还具有可管理性”(http://wiki.saltstack.cn/reproduction/dive-into-saltstack),这尼玛才是运维自动化的未来啊，于是毫无节操的开始学习salt，而且发现越学越喜欢；在我使用puppet及chef的时候都没有使用salt的感觉，太爽了。所以我这里仅仅介绍几本的语法不涉及实际用例，salt的安装非常方便，所以你在看本文档的时候希望你能真正的动手去做一下，然后你就会爱上salt了
+ 这里我们也能看到,2个配置功能都没能达到我理想中的状态,那就暂用chef吧,直到有一天,了解到了saltstack看到了这句话：“ 系统配置的自动化不仅可预测,可重复, 还具有可管理性”(http://wiki.saltstack.cn/reproduction/dive-into-saltstack),这尼玛才是运维自动化的未来啊，于是毫无节操的开始学习salt，而且发现越学越喜欢；在我使用puppet及chef的时候都没有使用salt的感觉，太爽了。所以我这里仅仅介绍基本的语法不涉及实际用例，salt的安装非常方便，所以你在看本文档的时候希望你能真正的动手去做一下，然后你就会爱上salt了
 
  附：：如果你会python，salt基本是不需要怎么学的，而我正好了解一点py，不过这最多占我选择salt的20%。
 </code></pre>
@@ -105,7 +105,7 @@ chef    从研发的角度去做配置管理(研发人员做给运维用的)   �
 <h2>1:saltstack的基本介绍</h2>
 
 <pre><code>salt是一个新的基础平台管理工具。很短的时间即可运行并使用起来, 扩展性足以支撑管理上万台服务器，数秒钟即可完成数据传递. 经常被描述为 Func加强版+Puppet精简版。
-salt的整个架构都是基于消息来实现.所以能够提供横强的拓展性,灵活性,实时性;不夸了,看实际的slat是什么样的
+salt的整个架构都是基于消息来实现.所以能够提供很强的拓展性,灵活性,实时性;不夸了,看实际的slat是什么样的
 不过salt还是一个很年轻的东西，还有很多地方不够完善，做的不够好，不过我相信这些都只是时间问题。
 
 注：以下文档仅仅为基本内容，相关知识点的深入学习，请看相应文档连接
@@ -380,7 +380,7 @@ salt的整个架构都是基于消息来实现.所以能够提供横强的拓展
           主要应该在测试和salt单机管理的时候
         2:peer
           文档:http://docs.saltstack.com/ref/peer.html
-          提供了一种让摸个或者默写minion通过master管理其他minoin的方法
+          提供了一种让某个或者某些minion通过master管理其他minoin的方法
           既然minion都可以管理其他minion了,肯定要涉及到权限的问题,否则就乱了;peer的权限设置在master配置文件的peer块
           风格如下:
             peer:
@@ -407,7 +407,7 @@ salt的整个架构都是基于消息来实现.所以能够提供横强的拓展
             官方自带的几个runner:https://github.com/saltstack/salt/tree/develop/salt/runners
          4:reactor
             官方文档:   http://docs.saltstack.com/topics/reactor/index.html
-            这个模块讲消息中的部分标签与部分sls绑定起来(绑定通过master的配置文件),sls定义了动作(做什么操作)
+            这个模块将消息中的部分标签与部分sls绑定起来(绑定通过master的配置文件),sls定义了动作(做什么操作)
             1:定义tag与sls的关系
                 vim /etc/salt/master
                 reactor:
@@ -435,7 +435,7 @@ salt的整个架构都是基于消息来实现.所以能够提供横强的拓展
 <h2>4:salt开发</h2>
 
 <pre><code>1:saltclient管理salt
-    只有才master才可以
+    只有master才可以
     salt全部用python，这里也用python
     文档：http://docs.saltstack.com/ref/python-api.html
     示例：
