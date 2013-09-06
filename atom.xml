@@ -4,7 +4,7 @@
   <title><![CDATA[halfss's blog]]></title>
   <link href="http://halfss.github.com/atom.xml" rel="self"/>
   <link href="http://halfss.github.com/"/>
-  <updated>2013-09-06T09:58:19+08:00</updated>
+  <updated>2013-09-06T14:08:03+08:00</updated>
   <id>http://halfss.github.com/</id>
   <author>
     <name><![CDATA[halfss]]></name>
@@ -12,6 +12,75 @@
   </author>
   <generator uri="http://octopress.org/">Octopress</generator>
 
+  
+  <entry>
+    <title type="html"><![CDATA[个人对运维及运维自动化的理解]]></title>
+    <link href="http://halfss.github.com/blog/2013/09/06/ge-ren-dui-yun-wei-ji-yun-wei-zi-dong-hua-de-li-jie/"/>
+    <updated>2013-09-06T14:03:00+08:00</updated>
+    <id>http://halfss.github.com/blog/2013/09/06/ge-ren-dui-yun-wei-ji-yun-wei-zi-dong-hua-de-li-jie</id>
+    <content type="html"><![CDATA[<p>一下内容为个人理解,如有不对,请及时指出,谢谢</p>
+
+<p>对于运维来说,基于状态的配置管理已经向自动化迈进了一大步,以状态为核心的运维,让状态本身有了可管理性;在运维过程中我们会发现,同样的一个配置,我们会在不同的时间,不同的地点一次在一次的配置,这个时候,配置管理就有了重复性;有的甚至是原封不动的重复,而另外一些则是按照一定的规律在发展,这些按照一定规律发展的配置,就是可预测的.综上我认识的,我们运维工作的本身是可管理,可重复,可预测的.基于这样的理念,我们就可以更进一步的推进我们的运维自动化,甚至到智能化.
+看到这里,我理想中的运维自动化的配置管理平台应该有如下功能:</p>
+
+<pre><code>1:对状态的配置及管理(最基本的)
+2:可以及时的对系统状态进行调整并能看到结果(实时性和反馈性)
+3:可以对其本身做方便的第三方管理(方便的将运维与其他管理做整合)
+</code></pre>
+
+<p>加分项:</p>
+
+<pre><code>1:开发语言单一
+2:架构简单,灵活
+3:有不错的安全性     4:没有商业版(个人偏见)
+</code></pre>
+
+<p>下面是现有比较有代表性的自动化配置管理工具:</p>
+
+<pre><code>附:以下仅基于开源版本进行介绍
+</code></pre>
+
+<pre>
+        基本属性(每项5分)      加分项目(每项1分)   总分
+        状态管理 实时管理      架构简单,灵活 开发语言单一 有API  有反馈系统
+puppet  5        3.5            1                1          0      0         10.5
+chef    5        1             -1               -1          1      0          5
+salt    4        5              1                1          1      1          13
+</pre>
+
+
+<p>附:</p>
+
+<ul>
+<li>1:puppet的实时管理,我给了3.5是因为moc的原因,这个moc,我感觉就是硬生生的加在puppet上的,只不过整合的比较好,所以用起来没那么大的违和感;这就相当于为了给puppet加入一个新的功能完全引入一个新的系统;你喜欢这样吗? 我不喜欢</li>
+<li>2:我对chef的架构和开发语言方面基本是怀有敌意,我在用chef的时候,我想改个功能,结果发现有3门语言:ruby,java,erlang而且我一个都不会(你们有谁能自己搞定这3门语言吗?),架构方便更是引入了各种东西;都数不过来;我只能说chef的理念很好(cookbook的管理及编写,节点的管理,role,environment的的设定,这些东西真的很好);但是被他们实现的我感觉很不好;而且chef的安全问题和对安全的态度;chef客户端基本可以获取当前chef环境中的所有信息,基本上意为这一个chef-client被黑了(架构如此复杂被黑的可能性很高),你的所有chef-client+chef-server就悲剧了;chef官方git的代码被微薄上的木人该了2次后(仅仅是我知道的);官方也没什么反应,请问,你敢用吗?</li>
+<li>3:salt的状态不比puppet和chef的差多少,所以我给了4分</li>
+</ul>
+
+
+<p>到这里,如果你现在正要选择一个运维自动化的工具的时候,毋庸置疑,就是salt了</p>
+
+<p>最近也出来一个比较新的运维自动化的工具:ansible(http://www.ansibleworks.com/),对于ansible我研究的不多,简单说下ansible与salt的情况:</p>
+
+<pre><code>1:2者仅仅从大的功能上来说,区别不大
+2:ansible:基于ssh(现在也可以基于消息),免安装(部分功能还是需要安装的,不过跟salt比安装,配置方面就方便很多了),快捷方便,但也就限制在里linix/unix平台上;自带完善是Web管理,API,数据存在基于数据库; 整体看起来比较完整; 算是一个商业产品级
+3:salt在产品这块的整体布局目前看起来不是很成熟(我感觉salt在产品这块的切入点很不错),是一帮纯粹工程师搞出来的东西;虽然简单,灵活,强大,但是真实在实际使用过程中,自己还会遇到不少的问题; 算是一个社区项目;不够salt的迭代非常快,我相信很快就汇成熟
+ansible是从商业目的出发,然后做开源
+salt是从技术与应用目的出发,现在也算是在做部分商业产品
+所以我跟趋向于salt
+</code></pre>
+
+<p>这里有一个对比salt和ansible的文章:http://missingm.co/2013/06/ansible-and-salt-a-detailed-comparison/</p>
+
+<pre><code>我简单的说下文章的内容:
+在速度上一般情况下salt比ansible快
+在安全性上ansible略好于salt
+安装&amp;部署&amp;维护上ansible好于salt
+在对状态的管理的时候ansible也比salt优雅
+最后作者更倾向于ansible;同时也说:也会使用salt;salt和ansible是都是非常优秀的工具.
+</code></pre>
+]]></content>
+  </entry>
   
   <entry>
     <title type="html"><![CDATA[salt相关使用]]></title>
