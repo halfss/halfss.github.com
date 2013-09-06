@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: awesome-sauce | halfss's blog]]></title>
+  <link href="http://halfss.github.com/blog/categories/awesome-sauce/atom.xml" rel="self"/>
+  <link href="http://halfss.github.com/"/>
+  <updated>2013-09-06T09:26:20+08:00</updated>
+  <id>http://halfss.github.com/</id>
+  <author>
+    <name><![CDATA[halfss]]></name>
+    <email><![CDATA[ljvsss@gmail.com]]></email>
+  </author>
+  <generator uri="http://ryandeussing.com/">Ryan Deussing</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[This is post]]></title>
+    <link href="http://halfss.github.com/blog/2011/06/01/this-is-a-test/"/>
+    <updated>2011-06-01T14:44:00+08:00</updated>
+    <id>http://halfss.github.com/blog/2011/06/01/this-is-a-test</id>
+    <content type="html"><![CDATA[<p>Booyah!</p>
+]]></content>
+  </entry>
+  
+</feed>
