@@ -739,6 +739,22 @@ chef    从研发的角度去做配置管理(研发人员做给运维用的)   �
  这里我们也能看到,2个配置功能都没能达到我理想中的状态,那就暂用chef吧,直到有一天,了解到了saltstack看到了这句话：“ 系统配置的自动化不仅可预测,可重复, 还具有可管理性”(http://wiki.saltstack.cn/reproduction/dive-into-saltstack),这尼玛才是运维自动化的未来啊，于是毫无节操的开始学习salt，而且发现越学越喜欢；在我使用puppet及chef的时候都没有使用salt的感觉，太爽了。所以我这里仅仅介绍基本的语法不涉及实际用例，salt的安装非常方便，所以你在看本文档的时候希望你能真正的动手去做一下，然后你就会爱上salt了
 
  附：：如果你会python，salt基本是不需要怎么学的，而我正好了解一点py，不过这最多占我选择salt的20%。
+    最近也出来一个比较新的运维自动化的工具:ansible(http://www.ansibleworks.com/),对于ansible我研究的不多,简单说下ansible与salt的情况:
+    1:2者仅仅从大的功能上来说,区别不大
+    2:ansible:基于ssh(现在也可以基于消息),免安装(部分功能还是需要安装的,不过跟salt比安装,配置方面就方便很多了),快捷方便,但也就限制在里linix/unix平台上;自带完善是Web管理,API,数据存在基于数据库; 整体看起来比较完整; 算是一个商业产品级
+    3:salt在产品这块的整体布局目前看起来不是很成熟(我感觉salt在产品这块的切入点很不错),是一帮纯粹工程师搞出来的东西;虽然简单,灵活,强大,但是真实在实际使用过程中,自己还会遇到不少的问题; 算是一个社区项目;不够salt的迭代非常快,我相信很快就汇成熟
+    ansible是从商业目的出发,然后做开源
+    salt是从技术与应用目的出发,现在也算是在做部分商业产品
+    所以我跟趋向于salt
+
+    这里有一个对比salt和ansible的文章:http://missingm.co/2013/06/ansible-and-salt-a-detailed-comparison/
+    我简单的说下文章的内容:
+    在速度上一般情况下salt比ansible快
+    在安全性上ansible略好于salt
+    安装&amp;部署&amp;维护上ansible好于salt
+    在对状态的管理的时候ansible也比salt优雅
+
+    最后作者更倾向于ansible;同时也说:也会使用salt;salt和ansible是都是非常优秀的工具.
 </code></pre>
 
 <h2>1:saltstack的基本介绍</h2>
