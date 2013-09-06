@@ -4,7 +4,7 @@
   <title><![CDATA[halfss's blog]]></title>
   <link href="http://halfss.github.com/atom.xml" rel="self"/>
   <link href="http://halfss.github.com/"/>
-  <updated>2013-09-06T14:08:03+08:00</updated>
+  <updated>2013-09-06T14:28:33+08:00</updated>
   <id>http://halfss.github.com/</id>
   <author>
     <name><![CDATA[halfss]]></name>
@@ -18,7 +18,7 @@
     <link href="http://halfss.github.com/blog/2013/09/06/ge-ren-dui-yun-wei-ji-yun-wei-zi-dong-hua-de-li-jie/"/>
     <updated>2013-09-06T14:03:00+08:00</updated>
     <id>http://halfss.github.com/blog/2013/09/06/ge-ren-dui-yun-wei-ji-yun-wei-zi-dong-hua-de-li-jie</id>
-    <content type="html"><![CDATA[<p>一下内容为个人理解,如有不对,请及时指出,谢谢</p>
+    <content type="html"><![CDATA[<p>以下内容为个人理解,如有不对,请及时指出,谢谢</p>
 
 <p>对于运维来说,基于状态的配置管理已经向自动化迈进了一大步,以状态为核心的运维,让状态本身有了可管理性;在运维过程中我们会发现,同样的一个配置,我们会在不同的时间,不同的地点一次在一次的配置,这个时候,配置管理就有了重复性;有的甚至是原封不动的重复,而另外一些则是按照一定的规律在发展,这些按照一定规律发展的配置,就是可预测的.综上我认识的,我们运维工作的本身是可管理,可重复,可预测的.基于这样的理念,我们就可以更进一步的推进我们的运维自动化,甚至到智能化.
 看到这里,我理想中的运维自动化的配置管理平台应该有如下功能:</p>
