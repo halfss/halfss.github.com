@@ -1,0 +1,3081 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[halfss's blog]]></title>
+  <link href="http://halfss.github.com/atom.xml" rel="self"/>
+  <link href="http://halfss.github.com/"/>
+  <updated>2013-09-06T09:58:19+08:00</updated>
+  <id>http://halfss.github.com/</id>
+  <author>
+    <name><![CDATA[halfss]]></name>
+    <email><![CDATA[ljvsss@gmail.com]]></email>
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[salt相关使用]]></title>
+    <link href="http://halfss.github.com/blog/2013/06/15/saltxiang-guan-shi-yong/"/>
+    <updated>2013-06-15T10:34:00+08:00</updated>
+    <id>http://halfss.github.com/blog/2013/06/15/saltxiang-guan-shi-yong</id>
+    <content type="html"><![CDATA[<h1>1:nodegroup</h1>
+
+<p>salt的命令管理在对批量的机器进行操作(如果是单个的机器进行命令操作,ssh是最直接的方法)的时候才能更显示出他的部分强大
+有时候我们通过target进行各种匹配,虽然可以写的很强大,强大到我们可以匹配出任何的满足我们需求的节点,但是写这个target的时候,如果过于复杂就要花费稍微长点的时间,所以在这个时候nodegroup可以很满足我们的需求,但是呢,直接写这个group分组也是很麻烦的,有没有更好的方法呢?</p>
+
+<p>前提:master支持部分配置的动态加载,比如nodegroup,实现的方式是动态的读取/etc/salt/master.d/*.conf内容,我们只要去更新nodegroup中的内容就可以了</p>
+
+<p>我这里有多个用户都会去操作(每个用户管理的salt的机器不一样)salt,而salt-master同一个配置只能加载一次,所以我只能去维护一个定义了nodegroup文件</p>
+
+<p>实现方式:</p>
+
+<p>每个salt用户(在salt服务器上也是一个用户:普通用户)的~/groups文件夹中定义了一个个文件,每个文件有一堆的minion ID列表,然后写个脚本去读取(~/groups)文件夹中的所有文件,然后生产跟文件名对应的group名</p>
+
+<p>如下:</p>
+
+<pre>
+ls ~/groups/
+
+test1.txt test2.txt test3.txt
+</pre>
+
+
+<p>然后执行如下命令:
+(这个命令为自己实现)</p>
+
+<pre>
+[halfss@salt ~]# opstack update_groups
+
+组更新完毕
+</pre>
+
+
+<p>组生成成功后:</p>
+
+<pre>
+[halfss@salt ~]$ salt -N test1 test.ping
+minion1:
+    True
+minion2:
+    True
+minion3:
+    True
+</pre>
+
+
+<p>update_groups的代码大概(我线上部分调整后直接粘贴过来,未测试)如下:</p>
+
+<pre>
+def update_groups():
+  file_dir = '%s/groups' % os.path.expandvars('$HOME')
+  groups_re = '#%s_start\n.*\n#%s_end\n' % (user,user)
+  groups = ''
+  for group_file in os.listdir(file_dir):
+    if group_file.split('.')[-1] != 'txt':
+      continue
+    group_file = '%s/%s' % (file_dir,group_file)
+    servers = [ server[:1] for server  file(group_file).readlines()]
+    groups += " %s: L@%s\n" % (group_file.split('/')[-1].split('.')[0],','.join(servers))
+  groups_tmp = '#%s_start\n%s#%s_end\n' % (user,groups,user)
+  nodegroups = file('/etc/salt/master.d/nodegroups.conf','r').read()
+  nodegroups,re_count = re.subn(r'%s' % groups_re, groups_tmp,node groups
+  if re_count == 0:
+    nodegroups += groups_tmp
+  file('/etc/salt/master.d/nodegroups.conf','w').write(nodegroups)
+  print "组更新完毕")
+</pre>
+
+
+<h1>2:复杂的sls</h1>
+
+<p>有些时候默认的提供的sls的语法并不能满足实际需求,好在灵活强大的salt已经支持sls拓展</p>
+
+<p>http://docs.saltstack.com/topics/tutorials/starting_states.html</p>
+
+<p>可以直接写python代码,只要返回值类似yaml风格一样东西就OK</p>
+
+<p>比如我要对节点的hosts中的某个域名做管理,找最近的IP去解析</p>
+
+<p>实例如下:</p>
+
+<pre>
+#!py                   #注意用python来写的sls用#!py开头
+import os
+import re
+
+def run():
+  hosts = [  ＃这里的IP是模拟IP
+   "192.168.1.2",
+   "10.0.0.1",
+  ]
+
+  hosts_time = {}
+  for host in hosts:
+    cmd = "ping -c 4 %s" % host
+    content = os.popen(cmd).read()
+    use_time = re.findall(r'time=(.*)ms',content)
+    hosts_time[host] = sum([float(u) for u in use_time])
+  hosts_time = sorted(hosts_time.items(),key=lambda hosts_time:hosts_time[1])
+  ip = hosts_time[0][0]
+
+  dict = {
+      'download':{'host.present':[{'ip':ip,'names':['download.cn']}]}
+    }
+  return dict
+</pre>
+
+
+<p>salt会用yaml去解析返回的这个字典</p>
+
+<h1>3:自定义动态garins</h1>
+
+<p>salt中自定义的minion ID，一般遵守fqdn规范，以尽可能他提供更多的信息方便管理员进行管理，但是fqdn不是万能的，不一定能包含需要的所有信息，这个时候自定义的grains就有用了</p>
+
+<p>这里自定义了个grain，会根据一个URL返回的值生产一个字典，返回给salt解析</p>
+
+<pre>
+cat /srv/salt/_grains/ops_user.py
+#!/usr/bin/env python
+
+import urllib2
+
+def ops_user():
+  grains = {}
+  ops_user = urllib2.urlopen('https://test.com/api/opsuser').read()　　　＃这里放回的是一个以逗号分割的字符串
+  ops_user = ops_user.split(',')
+  grains['ops_user'] = ops_user
+  return grains
+
+if __name__ == '__main__':
+  print ops_user()
+</pre>
+
+
+<p>然后同步grains，之后所有的minion都会有和这个grain的属性了
+saltutil.sync_grains</p>
+
+<p>不过这里有一个小问题，这个granis是静态值，除非指定节点去刷新，否则grains不会改变$</p>
+
+<h1>4:salt的拓展</h1>
+
+<p>salt的master和minion的交互很大程度上都和网络有关系,比如在管理多个国家的机器的时候(比如大中华局域网),这个时候,用一个master来管理,先不说体验上的问题,本身就是不现实的,这个时候怎么搞呢? 分布式</p>
+
+<p>一个master控制多个master,同时被控制的master又可以控制很多的minion</p>
+
+<p>这个时候咱们的问题就好处理的多了,当然不能说完全没有问题</p>
+
+<p>总master</p>
+
+<p>指定开启syndic模式,这样消息才能发送到syndic节点上</p>
+
+<pre>
+/etc/salt/master
+order_masters: True
+</pre>
+
+
+<p>制定要总master节点,启动syndic服务</p>
+
+<p>被管理的master:</p>
+
+<pre>
+/etc/salt/master
+syndic_master: salt.lightcloud.cn
+</pre>
+
+
+<p>/etc/init.d/salt-syndic start</p>
+
+<p>比如总master为master,syndic节点为syndic1</p>
+
+<p>将minion1的master制定为syndic,启动minion服务</p>
+
+<p>然后在syndic1节点就可以看到未接受的key,接受后,syndic就可以管理minion1了,同时master也可以管理minion1了</p>
+
+<p>问题:key的管理这块,还是仅仅minoin直接连接的节点才可以管理,也就是说刚才minion1的接受key的那个操作,只有在syndic1才可以完成,master是不行的</p>
+
+<h1>5:salt的用户认证管理</h1>
+
+<p>在salt服务器上可以用root来管理所有的minions,使用所有的功能,但是实际生产环境中,机器有很多,不是所有的人都要管理这些机器,就需要把这些机器分给不同的用户进行管理,这里可以使用salt的external_auth模块来做处理</p>
+
+<p>官方文档:http://docs.saltstack.com/topics/eauth/index.html</p>
+
+<p>官方的例子中写的很清晰,比如master配置文件中如下的配置</p>
+
+<pre>
+external_auth:   #制定启用认证模块
+
+  pam:    #制定所使用的认证模块,还有其他的认证模块可以使用比如ldap
+    thatch:  #制定用户名(master服务器的系统用户名)
+      - 'web*':   #制定匹配的minion 这里有垫操蛋的是,不能使用compund模式
+        - test.*   #这里指定了可以使用那些模块,后面是并列的
+        - network.*
+    steve:
+      - .*
+</pre>
+
+
+<p>这里的这2个用户thatch,可以对minion id中以web开头的使用test和network模块的所有功能,而steve这个用户就NB了,可以管理所有的minion,而且可以使用说有的功能</p>
+
+<p>如果在长期业务固化的系统中,这样的设定本来没什么问题,但是在业务快速迭代的系统中,业务会老是变来变去业务的负责人也同样会变来编曲,但是业务的主机名不会经常变化,这样的设定就会有问题,个人认为最好的解决方案应该是基于minion的某些属性来设定权限(可以动态的去管理这些属性);这样在业务变化的时候让这些属性也动态的去变化,权限也就动态的变化了</p>
+
+<p>可是默认的salt不支持这样的功能(已经跟官方反馈,个人认为这个功能在不久的将来会加上);自己也不能干等着,于是我就个所有的minion加另一个ops_user的属性(方法参考:３3：自定义动态garins),这里定义完了,怎么用呢?调整external的用户认证如下:</p>
+
+<pre>
+external_auth:
+  pam:
+    halfss:
+      - '*':
+        - '*'
+    halfss1:
+      - '*':
+        - '*'
+</pre>
+
+
+<p>这里我们看到了,我给了这２个用户halfss　halfss１　所有机器的所有权限,如果这样设置的是,基本上对minion的权限管理是废了,但是还有一步,调整下salt的一段代码,如下</p>
+
+<p>调整用户权限：</p>
+
+<pre>
+/usr/lib/python2.6/site-packages/salt
+diff client.py client.py_back
+969,971d968
+<         if self.salt_user != 'root':
+
+<             tgt = '%s and G@ops_user:%s' % (tgt,self.salt_user)
+
+<             expr_form = 'compound'
+979a977
+>
+</pre>
+
+
+<p>这样普通用户即使在执行　salt　&#8217;<em>&#8216;　test.ping　的时候也会成功,而且仅仅是有他权限的机器执行,这样我就完成了对minion动态的分配权限.而且还带来一个好处是,普通用户的体验会更好一些,在官方的代码中,如果普通用户没有所有机器的权限,那么他直接这样执行是会报错的,官方代码中(即使是普通用户),&#8221;</em>&#8220;　理解为salt-master中的所有minion,而不是改用户的所有minon(这个跟他的广播机制有关)　这个功能也已经跟官方反馈,他会在0.16中实现这个功能</p>
+
+<h1>6:minion信息的集中获取</h1>
+
+<p>master默认会将minion是信息(pillar和grains)存储在/var/cache/salt/master/minions/下(以minoin　id创建一个目录,该目录下有个data.p的文件);这样的方式并不便于minoin信息是采集与管理(如果有很多的机器,然后获取所有机器的minion信息的时慢的要死,当然这个不能怪salt);我们可以把这些信息都放到一个文件中,便于信息的采集与管理,这里提供对信息统一收集的基础代码,如下:</p>
+
+<p>获取minion的grain及pillar</p>
+
+<pre>
+/usr/lib/python2.6/site-packages/salt/master.py
+
+            cdir = os.path.join(self.opts['cachedir'], 'minions', load['id'])
+            if not os.path.isdir(cdir):
+                os.makedirs(cdir)
+            datap = os.path.join(cdir, 'data.p')
++            file('/var/log/salt/minions','w+').write(str({
++                                'minion_id':load['id'],
++                                'grains': load['grains'],
++                                'pillar': data})+'\n')
+            with salt.utils.fopen(datap, 'w+') as fp_:
+                fp_.write(
+                        self.serial.dumps(
+                            {'grains': load['grains'],
+                             
+</pre>
+
+
+<h1>7 自定义salt　modules</h1>
+
+<p>salt中自定义modules,实在是太简单了,为了让你详细,先来个最简单的</p>
+
+<pre>
+cat /srv/salt/_modules/custom.py
+def test():
+  return 'i am test'
+</pre>
+
+
+<p>同步到所有minion
+salt &#8216;*&#8217; saltutil.sync_modules</p>
+
+<p>直接就可以使用了</p>
+
+<pre>
+[root@localhost _modules]# salt '*'  custom.test　　＃调用方法,文件名.方法名
+minion1:
+    i am test
+</pre>
+
+
+<p>这个是最简单的;但是有时候,我们需要实现一些比较复杂的功能,而这些功能有的salt已经帮我们实现了,我们仅仅需要直接拿来用就好了;还有的我们需要使用minion的中grains或者pillar的信息;在有其他的功能,我们就需要自己是实现了,先看看刚才的２个怎么搞</p>
+
+<ul>
+<li>1 调用先有的module来显现自定义module中需要的功能</li>
+</ul>
+
+
+<p> <strong>salt</strong>　salt内置的一个字典,包含了所有的salt的moudle</p>
+
+<pre>
+[root@localhost _modules]# cat /srv/salt/_modules/custom.py
+def test(cmd):
+  return __salt__['cmd.run'](cmd)
+
+[root@localhost _modules]# salt '*'  custom.test ls
+minion1:
+    '
+    anaconda-ks.cfg
+    install.log
+    install.log.syslog
+    match.py
+    salt
+    test.py
+</pre>
+
+
+<p>是不是有点想想不到的简单?</p>
+
+<ul>
+<li>2 使用gains中信息</li>
+</ul>
+
+
+<pre>
+[root@localhost _modules]# cat /srv/salt/_modules/custom.py
+def test():
+  return  __grains__['id']
+
+[root@localhost _modules]# salt '*'  custom.test
+minion1:
+    minion1
+</pre>
+
+
+<p>将自定义的modules文件放在配置文件中定义的file_roots(默认为/srv/salt)下的 _modules目录下,会在执行highstate的时候自动同步,或者按照如下方式,手工推送
+ salt &#8217;<em>&#8217; saltutil.sync_modules 或者　salt &#8217;</em>&#8217; saltutil.sync_all</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[salt+自定义returner+fluent+mysql进行结果采集]]></title>
+    <link href="http://halfss.github.com/blog/2013/06/03/salt-plus-zi-ding-yi-returner-plus-fluent-plus-mysqljin-xing-jie-guo-cai-ji/"/>
+    <updated>2013-06-03T23:04:00+08:00</updated>
+    <id>http://halfss.github.com/blog/2013/06/03/salt-plus-zi-ding-yi-returner-plus-fluent-plus-mysqljin-xing-jie-guo-cai-ji</id>
+    <content type="html"><![CDATA[<p>背景:
+salt自带的有很多可选的returner,但是都需要在minion做配置,我感觉这点挺操蛋,
+而且正好我们平台上在使用fluent做采集,于是就自定义一个reutren,然后用fluent采集,处理,入库</p>
+
+<p>过程如下:</p>
+
+<h1>1:mysql表结构:</h1>
+
+<pre>
+CREATE TABLE `fluent`;
+
+CREATE TABLE `salt_returns` (
+  `id` mediumint(9) NOT NULL AUTO_INCREMENT,
+  `jid` char(20) DEFAULT NULL,
+  `host_id` varchar(48) DEFAULT NULL,
+  `time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `fun` varchar(30) DEFAULT NULL,
+  `return` text,
+  `success` char(5) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_host_id` (`host_id`)
+)
+</pre>
+
+
+<h1>2:自定义returners</h1>
+
+<p>创建默认自定义return的目录,这个目录虽然是默认的,但是默认并没有创建 :(</p>
+
+<pre>
+      mkdir /srv/salt/_returners
+</pre>
+
+
+<h2>自定义reuters:</h2>
+
+<p>主要就是returner(ret) 这个函数的定义</p>
+
+<pre>
+cat /srv/salt/_returners/lcoal_return.py
+#coding=utf8
+import json
+def __virtual__():
+    return 'local_return'
+def returner(ret):
+    '''
+    Return data to the local file
+    '''
+    result_file = '/var/local/salt/returner'
+    result = file(result_file,'a+')
+    result.write(str(json.dumps(ret.values()))[1:-1]+'\n')
+    result.close()
+</pre>
+
+
+<p>同步到所有节点：</p>
+
+<pre>
+salt '*' saltutil.sync_returners
+</pre>
+
+
+<p>执行命令</p>
+
+<pre>
+salt '*' cmd.run 'ls /var' --return local_return
+</pre>
+
+
+<p>查看结果：</p>
+
+<pre>
+cat /var/log/salt/returner
+"cmd.run", "20130524052158870765", "cache\ncvs\ndb\nempty\ngames\nlib\nlocal\nlock\nlog\nmail\nnis\nopt\npreserve\nrun\nspool\ntmp\nwww\nyp", "minion1", true
+</pre>
+
+
+<h1>3fluent采集</h1>
+
+<h2>客户端配置:</h2>
+
+<pre>
+<source>
+  type tail
+  path /var/log/salt/returner
+  pos_file /tmp/return_pos.log
+  tag os.salt
+  format /\"(?<fun>.*)\", \"(?<jid>\d+)\", (?<return>.*), \"(?<id>.*)\", (?<success>.*)/
+</source>
+
+<match os.*>
+    type forward
+    flush_interval 1s
+    <server>
+        host 
+        port 
+    </server>
+</match>
+</pre>
+
+
+<p>服务端配置:</p>
+
+<pre>
+<source>
+  type forward
+  port 24224
+  bind 0.0.0.0
+</source>
+
+<match host.os.salt>
+  type mysql
+  host localhost
+  database fluent
+  username fluent
+  password fluent
+  key_names jid,id,fun,return,success
+  sql INSERT INTO salt_returns (jid,host_id,fun,`return`,success) VALUES (?,?,?,?,?)
+  flush_interval 5s
+</match>
+</pre>
+
+
+<p>结果查询:</p>
+
+<pre>
+select * from salt_returns where success is not NULL and fun='cmd.run' limit 1;
++------+----------------------+-----------------------------------------+---------------------+---------+---------+---------+
+| id | jid | host_id | time | fun | return | success |
++------+----------------------+-----------------------------------------+---------------------+---------+---------+---------+
+| 2571 | 20130531184127393793 | test | 2013-05-31 10:38:29 | cmd.run | "/root" | true |
++------+----------------------+-----------------------------------------+---------------------+---------+---------+---------+
+</pre>
+
+
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[运维自动化之salt学习笔记]]></title>
+    <link href="http://halfss.github.com/blog/2013/05/22/yun-wei-zi-dong-hua-zhi-saltxue-xi-bi-ji/"/>
+    <updated>2013-05-22T20:35:00+08:00</updated>
+    <id>http://halfss.github.com/blog/2013/05/22/yun-wei-zi-dong-hua-zhi-saltxue-xi-bi-ji</id>
+    <content type="html"><![CDATA[<h1>引言:关于运维</h1>
+
+<h2>1:saltstack的基本介绍</h2>
+
+<h2>2:salt的安装</h2>
+
+<pre><code> 1:服务端
+      1:安装
+      2:配置文件
+      3:运行
+      4:注意事项
+ 2:客户端
+      1:安装
+      2:配置文件
+      3:运行
+      4:注意事项
+</code></pre>
+
+<h2>3:salt的使用:</h2>
+
+<pre><code> 1:基础知识
+           1：targeting
+           2：nodegroup
+           3：grains
+           4：pillar
+ 2:状态管理
+           1:state
+                1:state语法
+                2:state的逻辑关系
+           2:highstate
+           3:salt schedule
+ 3:实时管理
+            1:cmd.run
+            2:module
+ 4:其他
+            1:无master
+            2:peer
+            3:runner
+            4:reactor
+</code></pre>
+
+<h2>4:salt开发</h2>
+
+<pre><code> 1:saltclient管理salt
+ 2:salt api
+</code></pre>
+
+<hr />
+
+<h2>引言:关于运维</h2>
+
+<pre><code>运维的工作主要在2方面:
+    1:状态的管理
+    2:系统性能调优
+这里主要简介下运维状态的管理:
+
+ 对于运维来说,基于状态的配置管理已经向自动化迈进了一大步,以状态为核心的运维,让状态本身有了可管理性;在运维过程中我们会发现,同样的一个配置,我们会在不同的时间,不同的地点一次在一次的配置,这个时候,配置管理就有了重复性;有的甚至是原封不动的重复,而另外一些则是按照一定的规律在发展,这些按照一定规律发展的配置,就是可预测的.综上我认识的,我们运维工作的本身是可管理,可重复,可预测的.基于这样的理念,我们就可以更进一步的推进我们的运维自动化,甚至到智能化.
+
+看到这里,我理想中的运维自动化的配置管理平台应该有如下功能:
+    1:对状态的配置及管理(最基本的)
+    2:可以及时的对系统状态进行调整并能看到结果(实时性和反馈性)
+    3:可以对其本身做方便的第三方管理(方便的将运维与其他管理做整合)
+
+加分项:
+    1:开发语言单一
+    2:架构简单,灵活
+    3:有不错的安全性
+    4:没有商业版(个人偏见)
+
+下面是现有比较有代表性的自动化配置管理工具:
+    附:以下仅基于开源版本进行介绍
+
+        理念                                             优缺点
+puppet  从运维的角度去做配置管理(运维人员做给运维用的)   架构简单,系统比较成熟/不便于第三方管理
+chef    从研发的角度去做配置管理(研发人员做给运维用的)   较便于第三方管理,对自身(节点,变量,cookbook)的管理较方便,有自己的dashboard,cookbook支持版本管理,自从cookbook的版本管理/架构复杂,开发语言较多,(安全问题)
+
+  以上2者都比较侧重于状态的管理,对单个或者多个状态的临时调整或者管理较差
+  2个都有商业版,让我这个用开源版的很自卑
+
+ 这里我们也能看到,2个配置功能都没能达到我理想中的状态,那就暂用chef吧,直到有一天,了解到了saltstack看到了这句话：“ 系统配置的自动化不仅可预测,可重复, 还具有可管理性”(http://wiki.saltstack.cn/reproduction/dive-into-saltstack),这尼玛才是运维自动化的未来啊，于是毫无节操的开始学习salt，而且发现越学越喜欢；在我使用puppet及chef的时候都没有使用salt的感觉，太爽了。所以我这里仅仅介绍基本的语法不涉及实际用例，salt的安装非常方便，所以你在看本文档的时候希望你能真正的动手去做一下，然后你就会爱上salt了
+
+ 附：：如果你会python，salt基本是不需要怎么学的，而我正好了解一点py，不过这最多占我选择salt的20%。
+    最近也出来一个比较新的运维自动化的工具:ansible(http://www.ansibleworks.com/),对于ansible我研究的不多,简单说下ansible与salt的情况:
+    1:2者仅仅从大的功能上来说,区别不大
+    2:ansible:基于ssh(现在也可以基于消息),免安装(部分功能还是需要安装的,不过跟salt比安装,配置方面就方便很多了),快捷方便,但也就限制在里linix/unix平台上;自带完善是Web管理,API,数据存在基于数据库; 整体看起来比较完整; 算是一个商业产品级
+    3:salt在产品这块的整体布局目前看起来不是很成熟(我感觉salt在产品这块的切入点很不错),是一帮纯粹工程师搞出来的东西;虽然简单,灵活,强大,但是真实在实际使用过程中,自己还会遇到不少的问题; 算是一个社区项目;不够salt的迭代非常快,我相信很快就汇成熟
+    ansible是从商业目的出发,然后做开源
+    salt是从技术与应用目的出发,现在也算是在做部分商业产品
+    所以我跟趋向于salt
+
+    这里有一个对比salt和ansible的文章:http://missingm.co/2013/06/ansible-and-salt-a-detailed-comparison/
+    我简单的说下文章的内容:
+    在速度上一般情况下salt比ansible快
+    在安全性上ansible略好于salt
+    安装&amp;部署&amp;维护上ansible好于salt
+    在对状态的管理的时候ansible也比salt优雅
+
+    最后作者更倾向于ansible;同时也说:也会使用salt;salt和ansible是都是非常优秀的工具.
+</code></pre>
+
+<h2>1:saltstack的基本介绍</h2>
+
+<pre><code>salt是一个新的基础平台管理工具。很短的时间即可运行并使用起来, 扩展性足以支撑管理上万台服务器，数秒钟即可完成数据传递. 经常被描述为 Func加强版+Puppet精简版。
+salt的整个架构都是基于消息来实现.所以能够提供很强的拓展性,灵活性,实时性;
+不过salt还是一个很年轻的东西，还有很多地方不够完善，做的不够好，不过我相信这些都只是时间问题。
+
+注：以下文档仅仅为基本内容，相关知识点的深入学习，请看相应文档连接
+</code></pre>
+
+<h2>2:salt的安装</h2>
+
+<pre><code> 安装有很多途径,作为一个CentOS的用户,我选择rpm
+ 首先添加RPM源:
+
+    rpm -ivh http://mirrors.sohu.com/fedora-epel/6/x86_64/epel-release-6-8.noarch.rpm
+
+    附:实际生产中我是自建源
+
+ epel中关于salt的包:
+   salt-api.noarch : A web api for to access salt the parallel remote execution system
+   salt-master.noarch : Management component for salt, a parallel remote execution system
+   salt-minion.noarch : Client component for salt, a parallel remote execution system
+   salt.noarch : A parallel remote execution system
+   salt-cloud.noarch : Generic cloud provisioning tool
+1:服务端
+    1:安装
+           yum install salt-master -y
+      2:配置文件
+           /etc/salt/master
+           配置文件选项介绍:  http://docs.saltstack.com/ref/configuration/master.html
+           最基本字段:
+                interface: 服务端监听IP
+      3:运行
+           调试模式:
+                salt-master  -l debug
+           后台运行:
+                salt-master  -d  
+           作为CentOS管理员,我选择:
+                /etc/init.d/salt-master start
+      4:注意事项:
+           1:监听端口
+                 4505(publish_port):salt的消息发布系统
+                 4506(ret_port):salt客户端与服务端通信的端口,主要用来接受消息
+            所以确保客户端能跟服务端的这2个端口通信
+ 2:客户端
+      1:安装
+           yum install salt-minion -y
+      2:配置文件
+           /etc/salt/minion
+           配置文件选项介绍: http://docs.saltstack.com/ref/configuration/minion.html
+           最基本字段:
+                master: 服务端主机名
+                id: 客户端主机名(在服务端看到的客户端的名字)
+      3:运行
+           调试模式:
+                salt-minion  -l debug
+           后台运行:
+                salt-minion  -d  
+           作为CentOS管理员,我选择:
+                /etc/init.d/salt-minion start
+      4:注意事项:
+           1：minion默认和主机名为salt的主机通信
+           2:关于配置文件
+               salt的配置文件均为yaml风格
+               $key: $value     #注意冒号后有一个空格 
+    3:基础知识
+        1：salt minion和master的认证过程：
+            (1) minion在第一次启动时，会在/etc/salt/pki/minion/下自动生成minion.pem(private key), minion.pub(public key)，然后将minion.pub发送给master
+            (2) master在接收到minion的public key后，通过salt-key命令accept minion public key，这样在master的/etc/salt/pki/master/minions下的将会存放以minion id命名的public key, 然后master就能对minion发送指令了
+
+        如下：
+            启动服务端：
+                /etc/init.d/salt-minion restart
+            启动客户端：
+                /etc/init.d/salt-minion restart
+            服务端查看key：
+            salt-key 
+                Accepted Keys:
+                Unaccepted Keys:
+                minion1
+                Rejected Keys:
+            服务端接受key
+                salt-key -a minion1
+            测试：
+                salt 'minion1' test.ping
+                    minion1:
+                        True
+      附：salt更多命令及手册
+            salt '*' sys.doc
+</code></pre>
+
+<h2>3:salt的使用:</h2>
+
+<pre><code>1:基础知识
+    1：targeting
+        salt '*' test.ping
+        引号中以实现很强大的minion的过滤与匹配技术
+        文档:http://docs.saltstack.com/topics/targeting/compound.html
+
+        常用命令:
+            salt 'shell正则' 命令
+            salt -E 'prel 正则'
+            salt -N $group 命令
+            salt -L 'server_id1,server_id2,server_id3'  命令
+
+        示例: 
+            salt -C 'webserv* and G@os:Debian or E@web-dc1-srv.*' test.ping
+    2：nodegroup
+       对minion进行分组
+        文档: http://docs.saltstack.com/topics/targeting/nodegroups.html
+        在master的配置文件中按如下格式定义:
+        nodegroups:
+            group1: 'L@foo.domain.com,bar.domain.com,baz.domain.com or bl*.domain.com'
+            group2: 'G@os:Debian and foo.domain.com'
+        在state或者pillar中引用的时候如下:
+            base:
+                group1:
+                    - match: nodegroup    
+                    - webserver
+    3：grains
+        minion基本信息的管理
+        文档:http://docs.saltstack.com/topics/targeting/grains.html
+        基本使用:
+            salt '*' grains.ls  查看grains分类
+            salt '*' grains.items 查看grains所有信息
+            salt '*' grains.item osrelease 查看grains某个信息
+        示例：
+            salt '*' grains.item osrelease
+                minoin1:
+                  osrelease: 6.2
+        在用salt进行管理客户端的时候或者写state的时候都可以引用grains的变量
+    4：pillar
+        salt对敏感信息的管理,只有匹配到的节点才能获取和使用
+        文档:http://docs.saltstack.com/topics/tutorials/pillar.html
+        默认:pillar数据定义文件存储路径:/srv/pillar
+        入口文件:/srv/pillar/top.sls
+        格式:
+            base:
+                "targeting":
+                    - $pillar            #名字为pillar.sls的文件来存放对匹配到的minion的变量
+            $pillar.sls
+            基本:
+                $key: $value
+                 state引用方式:
+
+           复杂:
+                users:
+                       thatch: 1000
+                       shouse: 1001
+                       utahdave: 1002
+                       redbeard: 1003   
+                state引用方式:
+
+
+        查看节点的pillar数据：
+            salt 'client2' pillar.data
+        同步pillar：
+            salt '*' saltutil.refresh_pillar
+
+        附：这里我们可以看到，pallar中也可以使用jinja（后面会提到）做一些处理
+
+    5：minion
+        即为salt的客户端
+
+2:状态管理
+    1:state
+        salt基于minion进行状态的管理
+        1:state语法
+            文档:http://docs.saltstack.com/ref/states/all/index.html
+            结构:
+                $ID:  #state的名字
+                    $state:     #要管理的模块类型
+                    - $State states #该模块的状态
+            示例：
+                vim:
+                    pkg:    
+
+                    - installed
+                如果是redhard系列的就安装 vim-enhanced，如果系统是Debian或者Ubuntu就安装vim-nox
+            附：state默认使用jinja（http://jinja.pocoo.org/）的模板语法，
+                文档地址：  http://jinja.pocoo.org/docs/templates/
+        2：state的逻辑关系：
+            文档：http://docs.saltstack.com/ref/states/ordering.html
+
+            require：依赖某个state，在运行此state前，先运行依赖的state，依赖可以有多个
+                httpd:
+                  pkg:
+                    - installed
+                  file.managed:
+                    - name: /etc/httpd/conf/httpd.conf
+                    - source: salt://httpd/httpd.conf
+                    - require:
+                      - pkg: httpd
+
+            watch：在某个state变化时运行此模块
+                redis:
+                  pkg:
+                    - latest
+                  file.managed:
+                    - source: salt://redis/redis.conf
+                    - name: /etc/redis.conf
+                    - require:
+                      - pkg: redis
+                  service.running:
+                    - enable: True
+                    - watch:
+                      - file: /etc/redis.conf
+                      - pkg: redis
+
+            附：watch除具备require功能外，还增了关注状态的功能
+                还有与watch 和 require相反的watch_in,require_in
+
+            order：
+            优先级比require和watch低
+                有order指定的state比没有order指定的优先级高
+                vim:
+                  pkg.installed:
+                    - order: 1   #让当前状态第一个运行,如果该状态依赖其他状态,依赖的状态会在这个状态运行前运行
+
+                 想让某个state最后一个运行，可以用last     
+        3：state与minion
+            临时给minoin部署个state
+                salt 'minion1' state.sls 'vim'  #给minion1加一个vim的state
+                执行该命令后可以立即看到输出结果
+
+    2:highstate
+        给minion永久下添加状态
+        文档： http://docs.saltstack.com/ref/states/highstate.html
+        默认配置文件：/srv/salt/top.sls
+        语法：
+        '*':
+            - core
+            - wsproxy
+        /srv/salt/目录结构：
+            .
+            ├── core.sls
+            ├── top.sls
+            └── wsproxy    
+                ├── init.sls    
+                ├── websocket.py
+                └── websockify
+
+        应用：
+            salt "minion1" state.highstate
+        测试模式：
+            salt "minion1" state.highstate -v test=True
+    3:salt schedule
+        默认的state只有在服务端调用的时候才执行，很多时候我们希望minon自觉的去保持在某个状态
+        文档：http://docs.saltstack.com/topics/jobs/schedule.html
+        cat /srv/pillar/top.sls 
+        base:
+          "*":
+            - schedule
+        cat /srv/pillar/schedule.sls
+        schedule:
+          highstate:
+            function: state.highstate
+            minutes: 30
+        如上配置：
+            minion会每30分钟从master拉去一次配置，进行自我配置
+3:实时管理
+    有时候我们需要临时的查看一台或多台机器上的某个文件，或者执行某个命令
+        1:cmd.run
+            用法 salt '$targeting' cmd.run '$cmd'
+            示例：salt '*' cmd.run 'hostname'
+            执行下这样的命令，马上就感受到效果了，速度还贼快
+        2:module
+            同时，salt也将一些常用的命令做了集成
+            文档：http://docs.saltstack.com/ref/modules/all/index.html
+            这里几乎涵盖了我们所有的常用命令
+            比如：
+                查看所有节点磁盘使用情况
+                    salt '*' disk.usage
+ 4：其他
+        1:无master
+          文档：http://docs.saltstack.com/topics/tutorials/quickstart.html
+          主要应该在测试和salt单机管理的时候
+        2:peer
+          文档:http://docs.saltstack.com/ref/peer.html
+          提供了一种让某个或者某些minion通过master管理其他minoin的方法
+          既然minion都可以管理其他minion了,肯定要涉及到权限的问题,否则就乱了;peer的权限设置在master配置文件的peer块
+          风格如下:
+            peer:
+              .*: #有管理权限的minion节点
+                - .*   #可以使用的module
+          例子:
+            peer:
+              .*example.com:   #ID以example.com结尾的节点
+                - test.*   #可以使用test模块
+                - ps.*  #可以使用ps模块
+                - pkg.*   #可以使用pkg模块
+       3:runner
+         官方的想法是提供了一种灵活的,快捷的调用salt的方式,通过salt-run就可以直接在minion上运行自己的代码,但是我感觉有点多余;我直接在master写也可以啊
+         定义runner代码目录:
+            master配置文件:
+                runner_dirs: ['/srv/salt/_runner',]
+         测试:
+            cat /srv/salt/_runner/foo.py
+            def test():
+                print "True"
+            salt-run foo.test
+                True
+            当然这里应该写的是关于salt的调用
+            官方自带的几个runner:https://github.com/saltstack/salt/tree/develop/salt/runners
+         4:reactor
+            官方文档:   http://docs.saltstack.com/topics/reactor/index.html
+            这个模块将消息中的部分标签与部分sls绑定起来(绑定通过master的配置文件),sls定义了动作(做什么操作)
+            1:定义tag与sls的关系
+                vim /etc/salt/master
+                reactor:
+                 - 'test':
+                     - /srv/reactor/test.sls
+            2:定义reactor的sls
+                vim /srv/reactor/test.sls
+                clean_tmp:
+                    cmd.cmd.run:
+                        - tgt: '*'
+                        - arg:
+                            - rm -rf /tmp/*
+
+            3: 发送消息
+                salt-call event.fire_master '' 'test'
+                这个时候就可以看到 上面的哪个reactor是执行了的,也就是说所有节点的tmp目录都是空的了
+            这里我们注意到,第三步中执行的命令第一个参数是空的;这2个参数分布是一个data和tag;这个data可以在sls中做处理,tag就是用来触发sls的哪个标志,和master中定义的哪个需要一样
+            比如这个命令:
+                salt-call event.fire_master '{"overstate": "refresh"}' 'foo'
+
+                首先:foo代表了触发那个tag,然后执行相应的sls;然后在你的sls中可以引用这个data,上面的哪个overstate,在sls中引用的时候就需要这样:data['data']['overstate'];
+            这个功能就提供了无限的可能性啊,比如一个服务器出现某种问题的时候让另一个服务器做某种操作等,反正我认识这事一个非常NB,实在的功能
+</code></pre>
+
+<h2>4:salt开发</h2>
+
+<pre><code>1:saltclient管理salt
+    只有master才可以
+    salt全部用python，这里也用python
+    文档：http://docs.saltstack.com/ref/python-api.html
+    示例：
+    import salt.client
+    client = salt.client.LocalClient()
+    ret = client.cmd('*', 'cmd.run', ['ls -l'])
+    print ret
+2:salt api
+    salt api我现在还没用，不过我也没搞定，如果你搞定了，我会非常感谢你能分享下的。
+</code></pre>
+
+<h4>参考文档：</h4>
+
+<pre><code>1：salt中文wiki：http://wiki.saltstack.cn/
+   很不错的文章：http://wiki.saltstack.cn/reproduction/dive-into-saltstack
+2：salt官网http://saltstack.com/
+     官网文档：http://docs.saltstack.com/
+</code></pre>
+
+<p>salt qq群：294953305</p>
+
+<p>author weibo：halfss (http://weibo.com/halfss)</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[puppet学习笔记]]></title>
+    <link href="http://halfss.github.com/blog/2013/02/26/puppetxue-xi-bi-ji/"/>
+    <updated>2013-02-26T21:24:00+08:00</updated>
+    <id>http://halfss.github.com/blog/2013/02/26/puppetxue-xi-bi-ji</id>
+    <content type="html"><![CDATA[<h1>目录</h1>
+
+<h3>1 安装</h3>
+
+<h5>1.1 准备</h5>
+
+<h5>1.2 服务端安装</h5>
+
+<h5>1.3 客户端安装</h5>
+
+<h5>1.4 配置</h5>
+
+<h5>1.5 基本管理</h5>
+
+<h3>2 客户端管理</h3>
+
+<h5>2.1 基本管理</h5>
+
+<h5>2.2 节点管理</h5>
+
+<h5>2.3 资源管理</h5>
+
+<h3>3 module和resouse</h3>
+
+<h5>3.1 module</h5>
+
+<h5>3.2 resourse</h5>
+
+<h5>3.2.1 基本元素</h5>
+
+<h5>3.2.2 操作</h5>
+
+<h5>3.2.3 逻辑关系</h5>
+
+<h3>4:杂项</h3>
+
+<h5>4.1 默认变量</h5>
+
+<h5>4.2 节点变量</h5>
+
+<h5>4.3 节点继承</h5>
+
+<h3>5 puppet工作原理</h3>
+
+<h3>6 性能优化</h3>
+
+<p>Puppet是一种开源的IT自动化工具，可以对配置与服务进行批量管理。首次发布于2005年，</p>
+
+<h3>1 安装</h3>
+
+<p>硬件环境：</p>
+
+<ul>
+<li>puppet服务器：172.58.0.68</li>
+<li>puppet客户端：172.58.0.61</li>
+</ul>
+
+
+<h4>1.1 准备</h4>
+
+<p>添加epel源：</p>
+
+<pre>
+rpm -ivh http://mirrors.sohu.com/fedora-epel/6/x86_64/epel-release-6-8.noarch.rpm
+</pre>
+
+
+<p>添加puppet源</p>
+
+<pre>
+rpm -ivh http://yum.puppetlabs.com/el/6/products/x86_64/puppetlabs-release-6-6.noarch.rpm
+</pre>
+
+
+<h4>1.2 服务端安装</h4>
+
+<p>服务端安装：</p>
+
+<pre>
+yum install -y ntp  ruby ruby-lib ruby-rdoc puppet-server
+</pre>
+
+
+<p>开启自动启动：</p>
+
+<pre>
+chkconfig ntpd on
+chkconfig puppetmaster on
+</pre>
+
+
+<p>启动服务：</p>
+
+<pre>
+/etc/init.d/ntpd start
+/etc/init.d/puppetmaster start
+</pre>
+
+
+<p>服务器需要对外开放如下端口</p>
+
+<ul>
+<li>8140： puppet服务端</li>
+<li>123：ntp服务端</li>
+</ul>
+
+
+<p>防火墙开启相应端口</p>
+
+<pre>
+iptables -I INPUT -p tcp --dport 123 -j ACCEPT
+iptables -I INPUT -p tcp --dport 8140 -j ACCEPT
+</pre>
+
+
+<h4>1.3 客户端安装</h4>
+
+<pre>
+yum install -y puppet
+</pre>
+
+
+<h4>1.4 配置</h4>
+
+<p>puppet服务端与客户端都安装好后，开始对puppet进行配置，
+puppet整体时一个c/s结构，客户端需和服务端建立，puppet基于域名进行机器间的通信，
+要求所有机器有完整的域名（FQDN），这个要求对国内来说有写奢侈，不过我们可以用原始的指定hosts的方式来解决</p>
+
+<p>在2台机器的hosts(/etc/hosts)中分别加入如下内容：</p>
+
+<pre>
+172.58.0.68 master.puppet.lightcloud.cn
+172.58.0.61 client3.puppet.lightcloud.cn
+</pre>
+
+
+<p>保证2台机器通过域名能访问到对方，</p>
+
+<p>puppet的默认配置文件为:/etc/puppet/puppet.conf</p>
+
+<p>配置文件分为3部分：main master aget</p>
+
+<ul>
+<li>main：默认值对master和agent都有效，优先级最低</li>
+<li>master：仅对puppetmaster（服务端进程）生效</li>
+<li>agent：仅对puppet（客户端进程）生效</li>
+</ul>
+
+
+<p>所以在服务端只需要main+master，在客户端只需要main+agent</p>
+
+<p>配置文件中有很多选项（目前有204个），详情查看：[http://docs.puppetlabs.com/references/stable/configuration.html]</p>
+
+<p>所有在配置文件中实现实现的功能，均可以在puppet（集成管理puppet的命令，有很多很多的参数，通过puppet help查看）命令中指定，不过通过命令很不方便，这里均在配置文件中指定</p>
+
+<pre>
+[main]
+  #指定了puppet服务端的地址
+    server = master.puppet.lightcloud.cn
+    #是否实时刷新日志到磁盘
+    autoflush = false
+    #日志目录
+    logdir = /var/log/puppet
+    #puppet进程pid文件存放目录，使用守护进程运行时，需要这个文件
+    rundir = /var/run/puppet
+
+[master]
+  #保存客户端上传自身信息的文件存储目录，每个节点会有一个单独的目录，客户端的每次执行会生成一个以日期+时间命名yaml文件
+    reportdir = /var/lib/puppet/reports
+    #在客户第一次链接服务端的时候，需要服务端签名（相当于确认），服务端对客户端的识别是通过名字来确
+    #认的，在这个文件中的名字，可以被服务端自动签名（确认），支持正则匹配，内容类似这样：
+    #test.lightcloud.cn
+  #*.puppet.lightcloud.cn
+    autosign = /etc/puppet/autosign.conf
+    #puppetmaster服务端监听地址
+    bindaddress = 0.0.0.0
+    #puppetmaster服务端监听端口
+    masterport = 8140
+    #是否记录客户端对
+    evaltrace = true
+
+[agent]
+  #客户端的名字
+    certname = client.puppet.lightcloud.cn
+    #是否后台运行
+    daemonize = true
+    #是否允许证书自动覆盖，默认是不允许的，每个证书的有效期为5年
+    allow_duplicate_certs = true
+    #是否上传客户端对resouces的执行结果
+    report = true
+    #上传的方式，在有puppet的dashboard时需要这个
+    reports = store, http
+    #store上传是的地址
+    report_server =  master.puppet.lightcloud.cn
+    #store上传是的端口
+    report_port = 8140
+    #http上传时的地址,按照puppet的dashboard时需要这个
+    reporturl = http://172.58.0.68:3000/reports/upload
+    #客户端执行间隔（20分钟）
+    runinterval = 20m
+    #是否在执行时间上另加一个随机时间（0到最大随机时间之间的一个整数值）
+    splay = true 
+    #加的随之时间的最大长度
+    splaylimit = 10m
+    #客户端获取配置超时时间
+    configtimeout = 2m
+    #日志记录是是否加颜色
+    color = ansi
+    #是否忽略本地缓存
+    ignorecache = true
+ </pre>
+
+
+<p></p>
+
+<h4>1.5 基本管理</h4>
+
+<p>配置文件调整完毕后，重启puppermaster服务，在客户端上执行如下命令：</p>
+
+<pre>
+puppet agent --test
+Warning: /File[/etc/puppet/ssl/public_keys]/seluser: Could not stat; No such file or directory - /etc/puppet/ssl/public_keys
+Warning: /File[/etc/puppet/ssl/public_keys]/selrole: Could not stat; No such file or directory - /etc/puppet/ssl/public_keys
+Warning: /File[/etc/puppet/ssl/public_keys]/seltype: Could not stat; No such file or directory - 
+省略若刚行，中间一直时警告
+Warning: /File[/var/lib/puppet/state]/selrange: Could not stat; No such file or directory - /var/lib/puppet/state
+Info: Creating a new SSL key for client.puppet.lightcloud.cn
+Info: Caching certificate for ca
+Info: Creating a new SSL certificate request for client.puppet.lightcloud.cn
+Info: Certificate Request fingerprint (SHA256): 22:6A:A5:F6:9C:F0:CB:07:4A:75:2C:3C:44:38:FE:B2:27:78:7D:45:45:54:7D:90:AF:EB:00:A8:FD:2D:2C:0E
+Exiting; no certificate found and waitforcert is disabled
+</pre>
+
+
+<p>最后一行，提示为找到证书，是因为服务端还没给客户端签名确认，如果客户的名字匹配到autosign.conf时，服务端会自动确认
+在服务端执行如下命令，</p>
+
+<pre>
+[root@master manifests]# puppet cert list --all
+  "client.puppet.lightcloud.cn"  (SHA256) 22:6A:A5:F6:9C:F0:CB:07:4A:75:2C:3C:44:38:FE:B2:27:78:7D:45:45:54:7D:90:AF:EB:00:A8:FD:2D:2C:0E
++ "client3.puppet.lightcloud.cn" (SHA256) 98:89:AB:BE:B2:D0:52:1C:33:C2:18:6E:46:87:69:A3:A6:3F:98:3B:00:AB:B7:92:39:D9:6A:F8:B7:91:E3:5B (alt names: "DNS:client3.puppet.lightcloud.cn", "DNS:master.puppet.lightcloud.cn", "DNS:puppet", "DNS:puppet.puppet.lightcloud.cn")
+</pre>
+
+
+<p>输出2行数据，上面没有”+“的那行，时在刚刚刚刚添加的客户端，下面的那行时已经存在的</p>
+
+<pre>
+[root@master manifests]# puppet cert --sign client.puppet.lightcloud.cn
+Notice: Signed certificate request for client.puppet.lightcloud.cn
+Notice: Removing file Puppet::SSL::CertificateRequest client.puppet.lightcloud.cn at '/etc/puppet/ssl/ca/requests/client.puppet.lightcloud.cn.pem'
+[root@master manifests]# puppet cert list --all
++ "client.puppet.lightcloud.cn"  (SHA256) 61:90:1B:41:08:65:42:65:AE:24:EF:2B:97:68:D1:51:35:5C:A3:38:32:BD:C5:1D:B8:25:4A:80:4B:2F:C9:19
++ "client3.puppet.lightcloud.cn" (SHA256) 98:89:AB:BE:B2:D0:52:1C:33:C2:18:6E:46:87:69:A3:A6:3F:98:3B:00:AB:B7:92:39:D9:6A:F8:B7:91:E3:5B (alt names: "DNS:client3.puppet.lightcloud.cn", "DNS:master.puppet.lightcloud.cn", "DNS:puppet", "DNS:puppet.puppet.lightcloud.cn")
++ "master.puppet.lightcloud.cn"  (SHA256) 19:09:3D:DF:9C:71:47:8A:ED:74:AB:5B:30:22:42:38:35:7A:80:6C:3B:6A:75:D1:CC:BE:98:93:F2:46:9D:6A (alt names: "DNS:master.puppet.lightcloud.cn", "DNS:puppet", "DNS:puppet.puppet.lightcloud.cn")
+</pre>
+
+
+<p>签名后，就看到2行都有加号了，就都已经通过服务端确认了,
+给客户端下发一个简单的配置</p>
+
+<pre>
+[root@master manifests]# cat /etc/puppet/manifests/site.pp 
+
+node default {
+        file {
+                "/tmp/helloworld.txt": content => "hello, world";
+        }
+}
+</pre>
+
+
+<p>回到客户端：</p>
+
+<pre>
+[root@localhost ~]# puppet agent --test
+Info: Retrieving plugin
+Info: Caching catalog for client.puppet.lightcloud.cn
+Warning: /File[/tmp/helloworld.txt]/seluser: Could not stat; No such file or directory - /tmp/helloworld.txt
+Warning: /File[/tmp/helloworld.txt]/selrole: Could not stat; No such file or directory - /tmp/helloworld.txt
+Warning: /File[/tmp/helloworld.txt]/seltype: Could not stat; No such file or directory - /tmp/helloworld.txt
+Warning: /File[/tmp/helloworld.txt]/selrange: Could not stat; No such file or directory - /tmp/helloworld.txt
+Info: Applying configuration version '1357462364'
+Notice: /File[/tmp/helloworld.txt]/ensure: defined content as '{md5}e4d7f1b4ed2e42d15898f4b27b019da4'
+Info: Creating state file /var/lib/puppet/state/state.yaml
+Notice: Finished catalog run in 0.07 seconds
+
+[root@localhost ~]# cat /tmp/helloworld.txt 
+hello, world
+</pre>
+
+
+<p>我们下发的配置已经执行成功了 :)</p>
+
+<h3>2 客户端管理</h3>
+
+<p>puppet通过/etc/puppet/manifests/site.pp来对客户端进行管理</p>
+
+<pre>
+[root@master manifests]# pwd
+/etc/puppet/manifests
+[root@master manifests]# tree
+.
+└── site.pp
+1 directory
+</pre>
+
+
+<h4>2.1 基本管理</h4>
+
+<p>通过指定不同的node(一个node只能被指定一次)，然后写不同的resourse，来对客户端做各种管理
+比如：</p>
+
+<pre>
+cat /etc/puppet/manifests/site.pp
+
+node default {
+    file {
+        "/tmp/helloworld.txt": content => "hello, world";
+    }
+}
+
+
+node "client.puppet.lightcloud.cn" {
+    file {
+    "/tmp/client.txt":
+    content => "i am client";
+    }
+
+    package {
+    "wget":
+    ensure => installed;
+    }
+}
+</pre>
+
+
+<p>通过这样的方式，可以一直写下去，但是写个成百上千的，就会感觉这样有点太原始来，而且那么的不专业</p>
+
+<h4>2.2 节点管理</h4>
+
+<p>*.pp文件中时ruby的语法，一般的语言都可以从其他文件中导入内容，为了看起来更规范，我时这样做的</p>
+
+<pre>
+[root@master manifests]# pwd
+/etc/puppet/manifests
+[root@master manifests]# tree
+.
+├── default
+│   └── default.pp
+├── nodes
+│   ├── client3.puppet.lightcloud.cn.pp
+│   └── client.puppet.lightcloud.cn.pp
+└── site.pp
+
+2 directories, 4 files
+</pre>
+
+
+<p>default/default.pp中定义常用变量
+nodes中分别以节点名管理各节点配置
+然后在入口文件site.pp中把他们都导入(支持通配符导入)进来</p>
+
+<pre>
+[root@master manifests]# cat site.pp 
+import "default/*"
+import "nodes/*"
+
+[root@master manifests]# cat default/default.pp 
+$owner = 'root'
+$group = 'root'
+$mode = '0777'
+
+[root@master manifests]# cat nodes/client.puppet.lightcloud.cn.pp 
+node "client.puppet.lightcloud.cn" {
+    file {
+        "/tmp/client.txt":
+        owner => $owner,
+        group => $group,
+        mode => $mode,
+        content => 'i am just for client'
+    }
+}
+[root@master manifests]# cat nodes/client3.puppet.lightcloud.cn.pp 
+node "client3.puppet.lightcloud.cn" {
+    file {
+        "/tmp/client.txt":
+        owner => $owner,
+        group => $group,
+        mode => $mode,
+        content => 'i am just for clien3'
+    }
+}
+</pre>
+
+
+<p>分别运行客户端：</p>
+
+<pre>
+puppet agent -t ignorecache=true
+</pre>
+
+
+<p>在client上：
+</pre>
+[root@localhost ~]# ls /tmp/
+client.txt
+[root@localhost ~]# cat /tmp/client.txt
+i am just for client
+</pre></p>
+
+<p>在client3上：</p>
+
+<pre>
+[root@client3 ~]# ls /tmp/
+client.txt
+[root@client3 ~]# cat /tmp/client.txt 
+i am just for clien3
+</pre>
+
+
+<p>这样我们就可以较为正规的管理我们的各节点来，但是使用中我们会发现，很多个节需要相同的配置；我们会有大量重复的代码；这样不行，我们需要把这些配置模块化，重用化。</p>
+
+<h4>2.3 资源管理</h4>
+
+<p>puppet中有个module，可以对资源进行模块化，让我们重用
+经过多年的积累，puppet对module也有来一定的积累，有了自己的module库</p>
+
+<pre>
+[root@master manifests]# puppet module search ssh
+Notice: Searching https://forge.puppetlabs.com ...
+NAME                             DESCRIPTION       AUTHOR             KEYWORDS
+erwbgy-ssh                       # puppet-ssh      @erwbgy            rhel ssh
+csail-sshguard                   This is the `...  @csail             debian  
+blom-rssh        44                rssh module       @blom                      
+maestrodev-ssh_keygen            Generation of...  @maestrodev        ssh     
+bazilek-ssh_key_groups           Manage ssh ke...  @bazilek           ssh
+</pre>
+
+
+<p>当然我们也可以做自己的module</p>
+
+<p>module是一个个个的按一定要求文件夹，将这些文件夹放到指定的路径中，puppet就会认为这是一个模块了，
+通过”puppet config print modulepath“可以知道默认的module存放目录；“/etc/puppet/modules”便是其中的一个,在这些文件夹中的模块在使用的时候不需要写绝对路径。</p>
+
+<pre>
+[root@master modules]# puppet module list
+/etc/puppet/modules (no modules installed)
+/usr/share/puppet/modules (no modules installed)
+</pre>
+
+
+<p>创建自己的module：</p>
+
+<pre>
+cd /etc/puppet/modules
+mkdir -p ssh/{manifests,files,templates},module的入口在manifests/init.pp,
+
+[root@master modules]# tree ssh
+ssh
+├── files
+├── manifests
+│   └── init.pp
+└── templates
+    └── sshd_config.erb
+
+3 directories, 2 files
+
+[root@master modules]# cat ssh/manifests/init.pp 
+class ssh {
+
+    $port = 50000
+
+    package {
+        "openssh-clients":
+        ensure => installed;
+    }
+    
+    file {
+        "/etc/ssh/sshd_config":
+        mode => '0600',
+        owner => 'root',
+        group => 'root',
+        content => template ("ssh/sshd_config.erb");
+    }
+}
+
+
+[root@master modules]# cat ssh/templates/sshd_config.erb 
+Port <%= port %>
+Protocol 2
+SyslogFacility AUTH
+AuthorizedKeysFile /root/.ssh/.keys
+PasswordAuthentication no
+ChallengeResponseAuthentication no
+X11Forwarding no
+Subsystem sftp  /usr/libexec/openssh/sftp-server
+AllowGroups
+PermitUserEnvironment yes
+
+</pre>
+
+
+<p>在使用的时候：</p>
+
+<pre>
+[root@master manifests]# cat nodes/client.puppet.lightcloud.cn.pp 
+node "client.puppet.lightcloud.cn" {
+    include ssh
+}
+</pre>
+
+
+<p>ssh module 会让client.puppet.lightcloud.cn客户端在执行puppet的时候装上”openssh-clients“这个包，并且/etc/ssh/sshd_config内容会按照模板中生成</p>
+
+<pre>
+[root@localhost ~]# cat /etc/ssh/sshd_config 
+Port 50000
+Protocol 2
+SyslogFacility AUTH
+AuthorizedKeysFile /root/.ssh/.keys
+PasswordAuthentication no
+ChallengeResponseAuthentication no
+X11Forwarding no
+Subsystem sftp  /usr/libexec/openssh/sftp-server
+AllowGroups
+PermitUserEnvironment yes
+</pre>
+
+
+<h3>3 module和resouse</h3>
+
+<h4>3.1 module</h4>
+
+<p>puppet中module的规范</p>
+
+<pre>
+[root@master modules]# tree ssh
+ssh
+├── files  #存放需要下发到客户端的静态文件 (常用)
+│   └── test  # 以’puppet:///modules/ssh/test‘引用
+├── lib #存放自定义的插件和资源类型  (不常用)
+├── manifests #存放本模块所有的manifests (必须)
+│   ├── init.pp #本模块manifests的入口文件，可以import/include (必须)
+│   ├── params
+│   │   └── attributes.pp
+│   └── resourse
+│       ├── sshd_config.pp
+│       └── test.pp
+├── spec #存放lib中的测试文件 (不常用)
+├── templates #存放模板文件 (常用)
+│   └── sshd_config.erb 以template ("ssh/sshd_config.erb")引用
+└── tests (常用)
+    └── init.pp
+
+8 directories, 7 files
+</pre>
+
+
+<p>当我们编写好自己的module时，就可以把他应用在客户端了：</p>
+
+<pre>
+[root@master puppet]# cat /etc/puppet/manifests/nodes/client.puppet.lightcloud.cn.pp 
+node "client.puppet.lightcloud.cn" {
+    include ssh
+}
+</pre>
+
+
+<h4>3.2 resourse</h4>
+
+<h5>3.2.1 基本元素</h5>
+
+<p>对服务器操作的时候，我们需要一些最基本的元素</p>
+
+<ul>
+<li>1 变量
+一种是自定义的变量(比如定义客户端的内网ip)，一种是从客户端取到的变量(比如,客户端cpu的数量)
+自定义的变量，可以直接在manifests中指定，比如</li>
+</ul>
+
+
+<pre>
+[root@master modules]# cat ssh/manifests/params/attributes.pp 
+$port = 6006
+$authorizedKeysFile  = ".ssh/.keys"
+</pre>
+
+
+<p>从客户端取到的变量，puppet默认已经存在一些基本的变量，如：$hostname,$fqdn,$ipaddress
+默认的全部变量信息可以从puppetmaster运行目录下的yaml/facts/下各节点命名的文件中找到
+在resourse的代码中写写变量是可以直接使用的。
+也可以自定义一些变量：http://docs.puppetlabs.com/guides/custom_facts.html</p>
+
+<ul>
+<li>2 模板
+在对系统的管理中，有很多的管理都是对各种配置文件的管理，这些配置文件，整体格式确定，仅仅是一小部分内容有变化，
+这个时候模板就派上用场了
+比如ssh的一个配置文件，在这里为来简明，我把各个文件分开了（当然可以把所有的配置写到一个文件里面）</li>
+</ul>
+
+
+<pre>
+[root@master modules]# tree ssh/manifests/
+ssh/manifests/
+├── init.pp
+├── params
+│   └── attributes.pp #存放变量
+└── resourse #存放实际的resouse
+    ├── sshd_config.pp 
+    └── test.pp
+
+2 directories, 4 files
+</pre>
+
+
+
+
+<pre>
+[root@master modules]# cat ssh/templates/sshd_config.erb 
+Port <%= port %>
+Protocol 2
+SyslogFacility AUTH
+AuthorizedKeysFile <%= authorizedKeysFile %>
+PasswordAuthentication no
+ChallengeResponseAuthentication no
+X11Forwarding no
+Subsystem sftp  /usr/libexec/openssh/sftp-server
+AllowGroups
+PermitUserEnvironment yes
+
+
+[root@master modules]# cat ssh/manifests/params/attributes.pp
+$port = 6006
+$authorizedKeysFile  = ".ssh/.keys"
+
+[root@master modules]# cat ssh/manifests/resourse/sshd_config.pp 
+
+file {
+    "/etc/ssh/sshd_config":
+    mode => '0600',
+    owner => 'root',
+    group => 'root',
+    content => template ("ssh/sshd_config.erb");
+}
+</pre>
+
+
+<p>[root@master modules]# cat ssh/manifests/init.pp
+class ssh {</p>
+
+<pre><code>import "params/*"
+import "resourse/*"
+</code></pre>
+
+<p>}</p>
+
+<p>在templates下创建以erb结尾的文件，里面写上我们需要的配置文件的内容
+&lt;%= Ruby expression %>，可以写ruby的表达式，并写得配置文件中
+&lt;% Ruby code %>　可以直接写ruby的代码
+引用manifests中的变量；这样就可以在客户端上生成我们的ssh的配置文件了</p>
+
+<ul>
+<li>3 文件
+在服务器管理的过程中有时候我们需要下发我们自己的静态文件到客户端，按照module的规范，静态文件存放在files目录下</li>
+</ul>
+
+
+<pre>
+[root@master modules]# tree ssh/files/
+ssh/files/
+└── test.bin
+
+0 directories, 1 file
+</pre>
+
+
+<p>在manifests中通过(&#8220;puppet:///modules/ssh/test.bin&#8221;),可以引用该文件</p>
+
+<pre>
+[root@master modules]# cat ssh/manifests/resourse/test.pp 
+file {
+    "/tmp/test.bin":
+    ensure => 'present',
+    mode => '0700',
+    owner => 'root',
+    group => 'root',
+    source => "puppet:///modules/ssh/test.bin";
+}
+</pre>
+
+
+<h5>3.2.2 操作</h5>
+
+<p>有了这些元素，接下来就可以对服务器做各种操作了</p>
+
+<p>puppet中称为resouse(这里称为操作)，对于操作，puppet也有一些规范</p>
+
+<pre>
+操作类型 {
+    ”操作对象“:
+    属性１ => 变量１,
+    属性２ => 变量２,
+    属性３ => 变量３;
+}
+</pre>
+
+
+<p>我们对服务器的操作，一般可以分为如下几块：</p>
+
+<ul>
+<li>1 对文件/文件夹进行操作 (file)
+puppet中file的功能可以算是异常强大，比如对对文件，文件夹，模板，静态文件的管理，都可以通过file来完成</li>
+</ul>
+
+
+<pre>
+file {
+    "/etc/ssh/sshd_config":
+    ensure => present,
+    mode => '0600',
+    owner => 'root',
+    group => 'root',
+    content => template ("ssh/sshd_config.erb");
+}
+</pre>
+
+
+<p>在file中的第一行，以绝对路径确定了要操作的对象，然后用&#8221;:&#8221;隔开，后面跟上他需要的属性，属性间以”,“，整体以”;“结尾。</p>
+
+<p>属性有很多，这里写了常用的，具体参考（http://docs.puppetlabs.com/references/3.0.latest/type.html#file）</p>
+
+<ul>
+<li>ensure: 确保对象处理某个状态，有４中可选，absent｜present｜file｜directory</li>
+<li>absent：不存在，如果是文件夹，并且下面还有文件，要一并删除，还需要加个“recurse => true”的属性</li>
+<li>present：存在，如果不存在会创建,如果已经存在，与指定内容不一致，会覆盖原有文件</li>
+<li>file：文件类型</li>
+<li>directory：文件夹类型</li>
+<li>mode：确定该对象权限</li>
+<li>owner＆group：确定该对象的用户与用户组</li>
+<li>content：确定该对象的内容，可以直接写文本内容，也可以从模板文件中生成。</li>
+<li><p>source：文件来源，用来下发到客户端静态文件，（该选项与content只能二选一）</p></li>
+<li><p>2 对系统软件进行操作 (package)</p></li>
+</ul>
+
+
+<p>详情见：http://docs.puppetlabs.com/references/3.0.latest/type.html#package</p>
+
+<pre>
+package {
+    ["vim","iproute","curl","mtr"]:
+    ensure => present;
+    ["pppoe","pppoe-conf"]:
+    ensure => absent;
+    }
+</pre>
+
+
+<ul>
+<li>ensure：present｜absent｜pureged｜latest</li>
+<li>present:该软件存在，如果不存在会被安装，也可以写成installed</li>
+<li>abset：该软件不存在，如果存在会被删除</li>
+<li>pureged：连配置文件一起移除该软件</li>
+<li><p>latest：确保该软件包为最新版本</p></li>
+<li><p>3 对系统用户进行操作 (group,user)</p></li>
+</ul>
+
+
+<p>详情见：</p>
+
+<pre><code>http://docs.puppetlabs.com/references/3.0.latest/type.html#group
+http://docs.puppetlabs.com/references/3.0.latest/type.html#user
+</code></pre>
+
+<pre>
+user { "lightcloud":
+    password => 'lightcloud',
+     uid => 999,
+     gid => 999,
+     home => "/home/lightcloud",
+     shell => "/bin/bash";
+     }
+
+
+group { 
+    "lightcloud":
+     ensure => present,
+     members => 'lightcloud',
+     gid => 999;
+     }
+</pre>
+
+
+<ul>
+<li>4 对系统服务进行操作 (service)</li>
+</ul>
+
+
+<p>详情：http://docs.puppetlabs.com/references/3.0.latest/type.html#service</p>
+
+<pre>
+service {
+     "sshd": 
+     enable => 'true',
+     ensure => running; 
+     }
+     
+</pre>
+
+
+<ul>
+<li>enable：ture|false 是否开机启动</li>
+<li><p>ensuer：running|stopped 当前启动或停止</p></li>
+<li><p>5 cron管理</p></li>
+</ul>
+
+
+<p>详情：http://docs.puppetlabs.com/references/3.0.latest/type.html#cron</p>
+
+<pre>
+cron { logrotate:
+    command => "/usr/sbin/logrotate",
+    user => root,
+    hour => 2,
+    minute => 0
+}
+</pre>
+
+
+<ul>
+<li>ensure:是否启用：true|absent</li>
+<li>user:运行该cron的用户</li>
+<li><p>minute＆hour＆hour＆hour＆weekday　这几个参数的用法和crontab是一样的</p></li>
+<li><p>6 执行一个命令(必杀技) (exec)</p></li>
+</ul>
+
+
+<pre>
+exec { "echo 'a' > /tmp/exec":
+    path => "/usr/bin:/usr/sbin:/bin",
+    environment　＝> 'a=b',
+    user => 'root',
+    cwd => "/tmp",
+    creates => "/tmp/exec1",
+    timeout => -1,
+    }
+</pre>
+
+
+<ul>
+<li>path:指定查找命令的路径，如果不写的话，需要写绝对路径</li>
+<li>environment:命令执行时的系统环境变量</li>
+<li>user：指定执行该命令的用户</li>
+<li>cwd：执行命令的目录</li>
+<li>creates：指定命令生成的文件；如果指定了，该文件存在时，不会执行该命令，比如现在的如果/tmp下存在exec1的文件，该命令不被执行</li>
+<li>timeout：命令执行时间，如果超过该时间，命令还未执行完，会被kill掉，负值为不限时</li>
+</ul>
+
+
+<p>这些为常用的操作，puppet现在有48个操作可以使用，详情：http://docs.puppetlabs.com/references/3.0.latest/type.html</p>
+
+<h5>3.2.3 逻辑关系</h5>
+
+<p>有了基本的操作，在加上一些逻辑关系，就可以做出很复杂的功能了</p>
+
+<p>上面介绍的操作，每个操作都有自己的属性，虽然有些属性，功能差不多，但是部分地方还是有差距的，puppet中的各个操作也有公共属性。</p>
+
+<p>目前有11个公共属性，详情：http://docs.puppetlabs.com/references/stable/metaparameter.html</p>
+
+<p>对各个操作进行组合的逻辑情况大概如下：</p>
+
+<p>１：现在执行操作甲，在执行操作乙</p>
+
+<p>有２种思路：</p>
+
+<ul>
+<li>1 条件在甲里（before）</li>
+</ul>
+
+
+<pre>
+file { "/var/nagios/configuration":
+  source  => "...",
+  recurse => true,
+  before  => Exec["nagios-rebuid"]
+}
+
+exec { "nagios-rebuild":
+  command => "/usr/bin/make",
+  cwd     => "/var/nagios/configuration"
+}
+</pre>
+
+
+<ul>
+<li>1 条件在乙里（require）</li>
+</ul>
+
+
+<pre>
+file { "/usr/local/scripts":
+  ensure => directory
+}
+
+file { "/usr/local/scripts/myscript":
+  source  => "puppet://server/module/myscript",
+  mode    => 755,
+  require => File["/usr/local/scripts"]
+}
+</pre>
+
+
+<p>2：当操作甲变化时执行操作乙</p>
+
+<ul>
+<li>1 条件在甲里（notify）</li>
+</ul>
+
+
+<pre>
+file { "/etc/sshd_config":
+    source => "....",
+    notify => Service['sshd']
+}
+
+service { 'sshd':
+    ensure => running
+}
+</pre>
+
+
+<ul>
+<li>2 条件在乙里（subscribe）</li>
+</ul>
+
+
+<pre>
+file { 'nagconf':
+    path   => "/etc/nagios/nagios.conf"
+    source => "puppet://server/module/nagios.conf",
+}
+service { 'nagios':
+    ensure    => running,
+    subscribe => File['nagconf']
+}
+</pre>
+
+
+<p>3：操作需要周期执行
+需要周期执行的东西，我们首相想到的是crontab，crontab的管理更侧重于系统的，而puppet中的操作，有些比较长，也可能会经常变化，有时候放到系统中并不是很好的选择，这个时候就可以使用schedule</p>
+
+<pre>
+schedule { 'daily':
+  period => daily,
+  range  => "2-4"
+}
+</pre>
+
+
+<ul>
+<li>period：运行周期：hourly|daily|weekly|monthly|never</li>
+<li>range：时间范围，在莫个时间内运行</li>
+<li>periodmatch:周期匹配，有效值为数字或者范围</li>
+<li>repeat：重复次数，默认为1，必须为整数</li>
+</ul>
+
+
+<pre>
+exec { "rm /tmp/test.txt":
+  schedule => 'daily'
+}
+</pre>
+
+
+<p>实际这样的功能，借助于corn也同样可以做　:)</p>
+
+<h3>4:杂项</h3>
+
+<p>在实际的管理过程中，通过module我们就可以完成大部分服务的管理，但是有个别情况下，我们需要对实际的服务的个别喧嚣做些调整，有些是对个别节点进行调整，有写时候是对部分节点进行调整，统一管理，这样如果按上面的module来写不仅仅实现起来很麻烦，而有些地方还会有问题，这里需要对module的变量进行一些处理。
+变量不在module中进行定义，转到manifests中</p>
+
+<pre>
+[root@master modules]# tree ssh
+ssh
+├── files
+│   └── test.bin
+├── lib
+├── manifests
+│   ├── init.pp
+│   └── resourse
+│       ├── sshd_config.pp
+│       └── test.pp
+├── spec
+├── templates
+│   └── sshd_config.erb
+└── tests
+    └── init.pp
+
+7 directories, 6 files
+</pre>
+
+
+<p>manifests中不在有关于变量定义的参数</p>
+
+<h4>4.1 默认变量</h4>
+
+<p>在/etc/puppet/manifests/default/下存放一个和module名字一样的文件，存放默认变量</p>
+
+<pre>
+[root@master modules]# cat /etc/puppet/manifests/default/ssh.pp
+$port = 5555
+$authorizedKeysFile = ".ssh/.keys"
+</pre>
+
+
+<p>默认变量在site.pp中全部导入</p>
+
+<pre>
+[root@master modules]# cat /etc/puppet/manifests/site.pp
+import "default/*"
+import "nodes/*"
+</pre>
+
+
+<p>这样module就可以使用那些变量了</p>
+
+<p>让node指点包含ssh模块</p>
+
+<pre>
+node "client.puppet.lightcloud.cn" {
+    include ssh
+}
+</pre>
+
+
+<p>客户端的ssh的配置文件是这样的:</p>
+
+<pre>
+Port 5565
+AuthorizedKeysFile .ssh/.keys
+Protocol 2
+SyslogFacility AUTH
+PasswordAuthentication no
+ChallengeResponseAuthentication no
+X11Forwarding no
+Subsystem sftp  /usr/libexec/openssh/sftp-server
+AllowGroups
+PermitUserEnvironment yes
+</pre>
+
+
+<p>这样所有客户端的ssh端口就都是5565,公钥存储文件全部是　.ssh/.keys</p>
+
+<p>附：在发现将module中的manifest中的有对变量处理的操作的时候，import进来的就问题，将这些操作直接写到init.pp中就可以</p>
+
+<p>目前还不明白，管他呢，就先直接写到init.pp吧</p>
+
+<h4>4.2 节点变量</h4>
+
+<p>那现在我需要将其中的一个node的ssh监听端口变成5566,而且要用puppet管理，将node的配置文件改成这样：</p>
+
+<pre>
+node "master.puppet.lightcloud.cn" {
+    $port = 5566
+    include ssh
+}
+</pre>
+
+
+<p>那么客户端生成的ssh配置文件就是这样的了：</p>
+
+<pre>
+Port 5566
+AuthorizedKeysFile .ssh/.keys
+Protocol 2
+SyslogFacility AUTH
+PasswordAuthentication no
+ChallengeResponseAuthentication no
+X11Forwarding no
+Subsystem sftp  /usr/libexec/openssh/sftp-server
+AllowGroups
+PermitUserEnvironment yes
+</pre>
+
+
+<p>而其他没指定这个port的node的ssh监听端口依然是5565</p>
+
+<h4>4.3 节点继承</h4>
+
+<p>这个本来想写成环境变量哪，不过puppet既然已经称为节点继承了</p>
+
+<p>节点继承是这样的：</p>
+
+<pre>
+node webserver1 {
+    $provider = "VerySlow"
+    include admin::basics
+    include admin::ssh
+    include admin::ntp
+}
+
+node webserver2 {
+    $provider = "WreckSpace"
+    include admin::basics
+    include admin::ssh
+    include admin::ntp
+}
+</pre>
+
+
+<p>在manifests中也是可以写继承的，可以写成这样，比如</p>
+
+<pre>
+node webserver {
+    include admin::basics
+    include admin::ssh
+    include admin::ntp
+}
+
+
+node webserver1 inherits webserver {
+    $provider = "VerySlow"
+}
+
+node webserver2 inherits webserver {
+    $provider = "WreckSpace"
+}
+</pre>
+
+
+<p>这样就在使用的时候就比较方便了，环境变量也是一样的原理</p>
+
+<h3>5 puppet工作原理</h3>
+
+<p>在使用中我们能够看到，puppet没有使用其他的后端存储，比如db，puppet客户端的所有信息都存储在各种配置文件里，在需要的时候puppet对各种存储在配置文件中的代码进行解析(像上面我们看到的，puppet本身的配置文件，manifests的管理与工作，module的管理与工作)；</p>
+
+<p>*　1： 客户端puppetd调用facter，facter会探测出这台主机的一些变量如主机名、内存大小、IP地址等。然后puppetd把这些信息发送到服务器端；这个就是前面提到的puppet定义好的变量，存储在服务端的puppetmaster运行目录下的yaml/facts/下，并一个节点名形成一个单独的配置文件</p>
+
+<p>*　2： 服务器端的puppetmaster检测到客户端的主机名，检测是否经过签名（/etc/puppet/ssl/ca/），经过签名后会到manifest里面对应的node配置(通过/etc/puppet/manifests/site.pp入口文件)，然后对适用与该节点的内容进行解析(facter送过来的信息可以作为变量进行处理的),语法检查、然后会生成一个中间的伪代码，然后再把伪代码发给客户机。</p>
+
+<p>*　3：客户端接收到伪代码之后就会执行，客户端再把执行结果发送给服务器，服务器再把客户端的执行结果写入文件，默认是puppet服务端运行目录下的report文件夹；该文件夹下已各个节点命名形成文件夹，文件夹下存储客户端每次运行的返回值，客户端的每次运行都会形成一个报告文件，以日期＋时间命名</p>
+
+<p>默认的是各种配置文件进行存储，有时候这样感觉并不是很方便，也可以使用各种数据库对数据进行存储
+详情：http://projects.puppetlabs.com/projects/1/wiki/using_stored_configuration</p>
+
+<h3>6 性能优化</h3>
+
+<p>对puppet的基本原理了解后，我们能发现，puppet服务端其实挺累的(客户端仅仅干自己的活，而且是一部分)；而ruby又是一种解析型语言，性能肯定不会非常好；这样呢，我们也不能用高性能的语言把他重写了去，但我们可以在部分地方动手脚来进行性能优化</p>
+
+<p>看看上面的原理，我们能发现，服务端主要在做２件事：
+*　1:针对客户端生成伪代码
+　　这个还没找到很好的解决办法，看到有文章提到过放到memcache上，但是没找到具体方法</p>
+
+<p>*　2:与所有客户端的所有通信</p>
+
+<p>在网上有各种关于这方面的优化的文章，这里我选的是：
+unicorn在性能上和稳定性上都很好，按照也比较方便，与nginx配合也方便
+web服务器方面无疑是nginx了</p>
+
+<p>nginx＋unicorn＋puppet</p>
+
+<p>1:unicorn</p>
+
+<p>安装依赖：</p>
+
+<pre>
+yum install ruby-devel gcc make 
+</pre>
+
+
+<p>安装unicron</p>
+
+<pre>
+gem install unicorn rack
+</pre>
+
+
+<p>复制一个puppet的rack配置文件</p>
+
+<pre>
+cp /usr/share/puppet/ext/rack/files/config.ru /etc/puppet/
+</pre>
+
+
+<p>附：不明白具体是什么意思，看里面的代码，感觉像是对运行puppet时进行一些配置</p>
+
+<p>编写puppet的unicron配置文件</p>
+
+<pre>
+[root@master ssl]# cat /etc/puppet/unicorn.conf
+worker_processes 8
+   working_directory "/etc/puppet"
+   listen '/var/run/puppet/puppetmaster_unicorn.sock', :backlog => 512
+   timeout 120
+   pid "/var/run/puppet/puppetmaster_unicorn.pid"
+
+   preload_app true
+   if GC.respond_to?(:copy_on_write_friendly=)
+     GC.copy_on_write_friendly = true
+   end
+
+   before_fork do |server, worker|
+     old_pid = "#{server.config[:pid]}.oldbin"
+     if File.exists?(old_pid) && server.pid != old_pid
+       begin
+         Process.kill("QUIT", File.read(old_pid).to_i)
+       rescue Errno::ENOENT, Errno::ESRCH
+         # someone else did our job for us
+       end
+     end
+   end
+</pre>
+
+
+<p>接下就可以手工启动unicron了：</p>
+
+<pre>
+unicorn -c unicorn.conf 
+</pre>
+
+
+<p>这里我们可以看到定义来一个sock文件(/var/run/puppet/puppetmaster_unicorn.sock),通过这个sock文件可以与该服务进行通信</p>
+
+<p>但这样不是很专业，写成服务吧</p>
+
+<pre>
+[root@master puppet]# cat /etc/init.d/puppets-unicorn 
+#!/bin/bash
+# unicorn-puppet
+lockfile=/var/lock/puppetmaster-unicorn
+pidfile=/var/run/puppet/puppetmaster_unicorn.pid
+
+RETVAL=0
+DAEMON=/usr/bin/unicorn
+DAEMON_OPTS="-D -c /etc/puppet/unicorn.conf"
+
+
+start() {
+    sudo -u $USER $DAEMON $DAEMON_OPTS
+    RETVAL=$?
+    [ $RETVAL -eq 0 ] && touch "$lockfile"
+    echo
+    return $RETVAL
+}
+
+stop() {
+    sudo -u $USER kill `cat $pidfile`
+    RETVAL=$?
+    echo
+    [ $RETVAL -eq 0 ] && rm -f "$lockfile"
+    return $RETVAL
+}
+
+restart() {
+    stop
+    sleep 1
+    start
+    RETVAL=$?
+    echo
+    [ $RETVAL -ne 0 ] && rm -f "$lockfile"
+    return $RETVAL
+}
+
+condrestart() {
+    status
+    RETVAL=$?
+    [ $RETVAL -eq 0 ] && restart
+}
+
+status() {
+    ps ax | egrep -q "unicorn (worker|master)"
+    RETVAL=$?
+    return $RETVAL
+}
+
+usage() {
+    echo "Usage: $0 {start|stop|restart|status|condrestart}" >&2
+    return 3
+}
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    restart)
+        restart
+        ;;
+    condrestart)
+        condrestart
+        ;;
+    status)
+        status
+        ;;
+    *)
+        usage
+        ;;
+esac
+
+exit $RETVAL
+</pre>
+
+
+<p>2:nginx</p>
+
+<p>epel中yum按照即可</p>
+
+<pre>
+[root@master puppet]# cat /etc/nginx/nginx_puppet.conf 
+upstream puppetmaster_unicorn {
+    server unix:/var/run/puppet/puppetmaster_unicorn.sock fail_timeout=0;
+    }
+
+server {
+    listen 8140;
+    server_name  master.puppet.lightcloud.cn;
+    
+    ssl on;
+    ssl_session_timeout 5m;
+    ssl_certificate /etc/puppet/ssl/certs/master.puppet.lightcloud.cn.pem; 
+    ssl_certificate_key /etc/puppet/ssl/private_keys/master.puppet.lightcloud.cn.pem;
+    ssl_client_certificate /var/lib/puppet/ssl/ca/ca_crt.pem;
+    ssl_ciphers SSLv2:-LOW:-EXPORT:RC4+RSA;
+    ssl_verify_client optional;
+    
+    root /usr/share/empty;
+    
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Client-Verify $ssl_client_verify;
+    proxy_set_header X-Client-DN $ssl_client_s_dn;
+    proxy_set_header X-SSL-Issuer $ssl_client_i_dn;
+    proxy_read_timeout 120;
+    
+    location / {
+    proxy_pass http://puppetmaster_unicorn;
+    proxy_redirect off;
+    }
+}
+</pre>
+
+
+<p>启动unicorn和nginx服务即可,通过这样，不仅仅可以在一个机器上启动多个puppet进程做负载分摊，而且可以跨机器做负载分摊，这样在通信这块就不会有问题了。</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[chef简明手册]]></title>
+    <link href="http://halfss.github.com/blog/2013/02/26/chefjian-ming-shou-ce/"/>
+    <updated>2013-02-26T16:51:00+08:00</updated>
+    <id>http://halfss.github.com/blog/2013/02/26/chefjian-ming-shou-ce</id>
+    <content type="html"><![CDATA[<h3>1:楔子：</h3>
+
+<p>从前有个名叫chef的大厨，功夫甚为了得，通过如下几招:</p>
+
+<pre>
+* 1:rpm-Uvhhttp://rbel.frameos.org/rbel6
+* 2:yum -y install rubygem-chef-server
+* 3:setup-chef-server.sh
+</pre>
+
+
+<p>便能在一个叫做centos6.*(可能在其它地方也可以)的地方快速搭建一个内部餐厅，
+然后在来招</p>
+
+<pre>
+knife configure -i
+</pre>
+
+
+<p>便能把餐厅给装修了
+餐厅好了，该需要客人了，既然是内部客人，就该有自己的内部vip的凭着，于是chef大厨把“/etc/chef/validation.pem&#8221;当做内部餐厅的vip凭证，客人只要练这样一招&#8221;curl -L http://opscode.com/chef/install.sh | bash&#8221;,然后在自己的&#8221;/etc/chef/client.rb&#8221;，写上chef大厨餐厅的地址，自己的名字，自己需要的一些东西，类似这样：</p>
+
+<pre>
+cat /etc/chef/client.rb
+log_level :info ＃整个菜谱执行过程的记录级别
+log_location STDOUT
+chef_server_url 'http://172.58.0.61:4000' #chef大厨餐厅的地址
+validation_client_name 'chef-validator'
+node_name "172-58-0-64" #自己的名字
+</pre>
+
+
+<p>然后在来招:</p>
+
+<pre>
+chef-client
+</pre>
+
+
+<p>就成为chef大厨餐厅的免认证，唯一VIP会员了。</p>
+
+<p>这么复杂的东西，chef大厨也自写了一套秘籍:knife，来进行管理，knife种有不同的招式，来对不同的方面进行不的处理；使用起来也相当方便</p>
+
+<p>比如给客人新加一道菜(客户吃什么也都是chef控制的，东西怎么做也是chef控制的，太霸道了)</p>
+
+<pre>
+knife node  run_list add client1 nova
+</pre>
+
+
+<p>在去掉一道菜：</p>
+
+<pre>
+knife node  run_list remove client1 nova
+</pre>
+
+
+<p>这套秘籍还有很多的招式，预知详情，输入knife，按回车</p>
+
+<p>不过呢，chef大厨认为自己厨艺比较高，怕餐厅工作都自己搞，人多了忙不过来，就定了个规矩，上菜，只上菜谱，而且不主动给送(就是这么霸道)；客户要什么菜，告诉大厨，大厨给你发过去；这样大厨就比较轻松了，客户累了一点(也就是是说真正干事的人是客户自己，客户在自己的家里按照菜谱做自己要的菜)；不过这样做的好处就是可以用较低的成本，完成较多的工作；而且呢，客户也可以是一些小客户，在地球上没有独立或者固定地址的客户。</p>
+
+<p>既然这样，也就是说，如果是仅仅是想到不错的菜，对菜的具体加工过程没有洁癖的话，只要去研究这个菜谱怎么搞，就好了；如果有洁癖，想吃很好的菜，那就去研究这个餐厅的工作机制吧，我想要的是吃上不错的菜，那么我就去研究这个菜谱怎么写；而我是个懒人，实现我的效果即可</p>
+
+<h3>2:菜谱(cookbook)</h3>
+
+<p>先看眼菜谱是什么样的</p>
+
+<pre>
+tree openssh
+openssh
+├── attributes
+│   └── default.rb
+├── files
+│   └── default
+│       └── mysh
+├── metadata.rb
+├── recipes
+│   ├── default.rb
+│   └── pubkeys.rb
+└── templates
+    └── default
+        ├── ssh_config.erb
+        └── sshd_config.erb
+6 directories, 7 files
+</pre>
+
+
+<h4>1:我需要什么</h4>
+
+<ul>
+<li><p>1: 变量(attributes)
+存储那些会变，用的比较多，而且不常变的东西，也是就说这里存储的都是默认配置</p>
+
+<p>在这个文件里定义penssh/attributes/default.rb</p>
+
+<p>可以这样定义：
+<pre>
+default['myssh'] = 'False'
+default['openssh']['server']['port'] = "22222"
+default['openssh']['server']['protocol'] = "2"
+default['openssh']['client']['forward_x11'] = "no"
+default['openssh']['client']['gssapi_authentication'] = "no"
+</pre>
+以default(因为这里都是默认配置嘛)开头，然后可以通过已中括号括起的字符串(用引号标起来了嘛)一级级的来组织我们的变量</p></li>
+<li><p>2: 模板(templates)
+整体确定，部分内容会有变化的文本文件；一般这里存储的都是配置文件，所以每个配置文件都是独立的模板，存放openssh/templates文件夹下的</p>
+
+<p>模板文件名字可以自定义，以.erb结尾</p>
+
+<p>比如:
+<pre>
+cat openssh/templates/default/sshd_config.erb
+&lt;% @settings.each do |key, value| %>
+&lt;%         if value.kind_of? Array %>
+&lt;%                 value.each do |item| %>
+&lt;%=                 "#{key.split("<em>").map { |w| w.capitalize}.join} #{item}" %>
+&lt;%                 end %>
+&lt;%         else %>
+&lt;%=         "#{key.split("</em>").map { |w| w.capitalize}.join} #{value}"%>
+&lt;%         end %>
+&lt;% end %>
+Port &lt;%= @%node['openssh']['server']['port']>
+&lt;% if ['openssh']['server']['port'] == 2222 %>
+Protocol &lt;%= @node['openssh']['server']['protocol'] %>
+&lt;% else %>
+Protocol 1 %>
+&lt;% end %>
+</pre></p>
+
+<p>这里实际就是ruby的语法(虽然我看不懂),上面那段比较复杂，看起来是一个循环，先不看；看看后面的简单的，可以对变量进行赋值
+看看后面那2行生成的内容是什么样的（哎，由果推因，无知啊）
+<pre>
+Port 2222
+Protocol 2
+</pre>
+原来&lt;%= @var%>,var那里写上变量名就行了，这个变量名可以直接从第一步定义的变量中导入，只需要将那个&#8221;变量&#8221;中的default，变成node就可以了. 通过这样，我们可以对配置文件做基本的操作，只需要我们将变量按我们的思路去处理，也就是在这里对变量的处理是最主要的，一会就说怎么让配置文件中的变量搞的飞起来</p>
+
+<p>还有一点，猜对了，如果&#8221;变量&#8221;中的port那项不是2222的话，protocol就是1了</p></li>
+<li><p>3: 文件(files)</p>
+
+<p>100年都不变的各种文件(*.av,*.:,*.bin&#8230;)
+存在这里(openssh/files/default)的文件,会原封不懂的给客户，至于放到客户的什么地方，就有后面提到的动作控制了</p></li>
+</ul>
+
+
+<h4>2:我做什么</h4>
+
+<p>有了上面的准备工作，下面就该操刀实干了</p>
+
+<ul>
+<li><p>操作(recipes)</p>
+
+<p>openssh/recipes 下的以.rb结尾的文件称为一个个recipe，这里记录了每一步该用什么，怎么用，做什么；从前到后依次执行</p></li>
+</ul>
+
+
+<h5>Where there is a shell, there is a way !</h5>
+
+<p>shell是如此的强大，但是如果全部用shell来实现我们的需求，那我们刚才花的那几分钟岂不是白花了，不能让他白花；看看shell之外有有那些路可以走。</p>
+
+<p>首先整理下，一般情况下，我们都需要对系统做什么操作(当然，我们需要的所有东西，基本都可以通过执行一个命令来实现，我认为，从某个角度来说，这就是对shell的另一种实现)</p>
+
+<p>操作上有以下几种：</p>
+
+<p>模式：</p>
+
+<pre>
+模式 “模式名” do
+  。。。 #这里写你
+  。。。 #要做的操
+  。。。 #做
+end
+</pre>
+
+
+<p>模式只能使用chef定义好的，模式名，可以自定义</p>
+
+<ul>
+<li><p>1:对文件夹进行操作</p>
+
+<ul>
+<li>1:创建一个文件夹
+<pre>
+directory "/root/script" do
+ owner "root"
+ group "root"
+ mode  0755
+ action :create
+end
+</pre></li>
+</ul>
+
+
+<p>创建一个/root/script的文件夹，用户属于root，用户组也属于root，权限为0755</p>
+
+<ul>
+<li>2:删除一个文件夹
+<pre>
+directory "/root/script" do
+ recursive true  #递归删除
+ action :delete
+end
+</pre></li>
+</ul>
+
+
+<p>不要怀疑，刚看起来，对一个文件夹操作都要这么多行代码，真麻烦</p></li>
+<li><p>2:对普通文件进行操作</p>
+
+<ul>
+<li>1 创建一个文件
+<pre>
+file "/root/123.txt" do
+owner "root"
+group "root"
+mode 00755
+action :create
+end
+</pre></li>
+<li>2 删除一个文件
+<pre>
+file "/root/123.txt" do
+action :delete
+end
+</pre></li>
+</ul>
+</li>
+<li><p>3:对命令进行操作</p>
+
+<ul>
+<li>2 执行一个命令
+<pre>
+execute "upgrade script" do
+ command "shutdown -h 0"
+ action :run
+end
+</pre></li>
+</ul>
+
+
+<p>command 决定了执行什么命令(里面写什么就执行什么)
+action 怎么操作做这个命令(这是个通用选项)，这里写的是执行，也是每次到这里都会执行这个命令
+这个操作每执行一次，你的系统就关机一次</p></li>
+<li>5:对软件包进行操作
+支持redhat，debian系，忽视yum与apt，这个可以写出2种系统都兼容的命令
+
+<ul>
+<li>1 安装一个软件
+<pre>
+package "dstat" do
+  action :install
+end
+</pre></li>
+</ul>
+
+
+<p>在模块名出写上，要操作的包的名字</p>
+
+<p>action 决定怎么操作做个包</p>
+
+<ul>
+<li>install:安装</li>
+<li>upgrade:升级</li>
+<li>remove:卸载(centos系列种，相当于yum remove，删除了软件包，但没有删除配置文件)</li>
+<li>purge:卸载包，删除配置文件</li>
+</ul>
+</li>
+<li><p>6:对模板进行操作</p>
+
+<p>个人认为：linux种对各种服务的配置与管理，基本上就是对配置文件的管理了，这里要多花精力
+<pre>
+address = '192.168.0.'＋node['ipaddress'].split('.')[2]
+port = node['mysqld']['port']
+template "/etc/my.cnf" do
+  source "my.cnf.erb"
+  owner "mysql"
+  group "mysql"
+  mode 0755
+  variables(
+  'bind-ipaddress' => address，</p>
+
+<pre><code>…… ＃此处省略
+…… ＃若干行
+</code></pre>
+
+<p>  &#8216;port&#8217; => port
+  )
+end
+</pre>
+在template开始之前，可以对变量做各种处理，以达到我们想要的结果(处理的语法就是ruby的语法),在variables种可以放多个变量；这里我们也可以使用客户的一些信息，比如客户IP(node[&#8216;ipaddress&#8217;])等，通过对定义的变量和客户的一些信息，在加上一些处理，基本就能满足大部分需求了。
+这个template会去&#8221;openssh/templates&#8221;文件下招my.cnf.erb这个文件，而且这个文件可能是这样的
+<pre>
+*****************
+bind-address = &lt;%= @address %>
+*****************
+*****************
+port = &lt;%= @port %>
+</pre></p>
+
+<p>而最终系统的/etc/my.cnf就会是这样:
+<pre>
+*****************
+bind-address = 192.168.0.45
+*****************
+*****************
+port = 3306
+</pre></p></li>
+<li><p>7:对文件(1小节种提到的文件)进行操作
+这个主要是文件上传的功能，上传制定文件到客户的制定位置，并给与制定的权限
+<pre>
+cookbook_file "/root/script/src/mysql-5.1.56.tar.gz" do
+  source "mysql-5.1.56.tar.gz"
+  mode '0700'
+  owner 'root'
+  group 'root'
+end
+</pre>
+这个会去openssh/files/default目录下找名字为mysql-5.1.56.tar.gz的文件，然后上传到客户的/root/script/src/mysql-5.1.56.tar.gz，并切用户和用户组都是root，权限是0700</p></li>
+</ul>
+
+
+<p>逻辑上有以下几种:</p>
+
+<ul>
+<li><p>1:执行一个简单的操作</p>
+
+<p>通过上面的各种模式，就可以定义一个简单的操作了</p></li>
+<li><p>2:执行操作甲后，执行另一个操作乙</p>
+
+<p>首先相信这样的需求，如果让我设计，我会怎么实现他：</p>
+
+<ul>
+<li>1:首先，操作甲执行完后，要通知乙下，告诉乙做什么，怎么做；这样乙才知道什么执行；</li>
+<li>2:而且操作乙平常是不执行的，否则等甲的通知也每什么意义了(当然有一种蛋都疼的情况就是，操作乙平常需要执行，操作甲执行后也需要执行)</li>
+</ul>
+
+
+<p>看看chef的实现方式：
+<pre>
+template "/etc/nginx/nginx.conf" do
+  notifies :run, "execute[nginx_reload]", :immediately
+end
+execute "nginx_reload" do
+  command "nginx -s reload"
+  action :nothing
+end
+</pre>
+notifies：标记了，什么时候通知什么操作，做什么动作</p>
+
+<p>官方文档是这样写的:
+<pre>
+notifies :action, "resource_type[resource_name]", :notification_timing
+</pre>
+那么“notifies :run, &#8220;execute[nginx_reload]&#8221;, :immediately”，这句话翻译成人话，就是这样的，马上运行名字为”nginx_reload”的命令；在结合场景翻译下：在对/etc/nginx/nginx.conf配置完成后，马上运行名字为”nginx_reload”的命令。</p>
+
+<p>action: 这里的nothing，标记了该操作，平时的不作为，如果吧这里的nothing改为run,那么就满足了上面说到的蛋蛋都疼的需求</p></li>
+<li><p>3:这个操作，只在某种条件下执行</p>
+
+<p>其实这里应该有2个，该操作在某种条件下执行或者不执行：</p>
+
+<ul>
+<li>1:只有在什么情况下才做这个操作</li>
+<li>2:在这种情况下就不做这个操作</li>
+</ul>
+
+
+<p>如果将上面2个需求翻译成英语就是</p>
+
+<ul>
+<li>1nly if</li>
+<li>2:not if</li>
+</ul>
+
+
+<p>翻译成chef的语法就是：（会英语就是好啊，学技术都这么快，语法都能猜出来了）</p>
+
+<ul>
+<li>1nly_if</li>
+<li>2:not_if</li>
+</ul>
+
+
+<p>only_if和not_if的意义虽然不一样，但是用法是一样的</p>
+
+<p>这种情况下chef的操作代码就像是这样:
+<pre>
+execute 'restart_mysql' do
+  command '/etc/init.d/mysqld restart'
+  not_if 'netstat -ln |  grep 3306'
+end
+</pre>
+这个翻译成人话就是执行&#8221;netstat -ln|grep 3306&#8221;，如果有输出，就不执行这个命令来，否则执行</p></li>
+<li><p>8:必杀技之执行shell脚本</p>
+
+<p>既然有shell，就能实现我们的功能，如果上面的那些还满足不了，或者就喜欢写shell脚本，那么这个就是最好也是唯一的选择了</p>
+
+<p><pre>
+script "install_nginx" do
+  interpreter "bash"
+  user "root"
+  cwd "/usr/local/src"
+  code &lt;<-EOH
+  wget 'http://nginx.org/download/nginx-1.2.1.tar.gz'
+  tar -xzvf nginx-1.2.1.tar.gz -C /usr/local/src/
+  git clone https://github.com/yaoweibin/nginx_tcp_proxy_module.git \
+  /usr/local/src/nginx_tcp_proxy_module
+  cd /usr/local/src/nginx-1.2.1/
+  patch -p1 <  /usr/local/src/nginx_tcp_proxy_module/tcp.patch
+  ./configure --add-module=/usr/local/src/nginx_tcp_proxy_module
+  make
+  make install
+  EOH
+  not_if 'ls /usr/local/src | grep nginx'
+end
+</pre></p></li>
+</ul>
+
+
+<p>interpreter:这里指定了bash，既然需要制定，就说明这里的选择不仅仅一个，还应该有其它，还真猜对了，这里可以写 bash csh perl ruby python(当然应该是bash用的多些吧，反正如果让我执行py的话我是不会这样写的)</p>
+
+<p>user:指定了在什么目录下运行，当然在脚本的第一行，cd 到某个目录也是一样的效果</p>
+
+<p>code:指定了结尾的logo，这里，从当前行开始，一直到，EOH中间的都是要执行的脚本</p>
+
+<p>not_if 在这里加了个判断，只要在/usr/local/src目录下没有名字nginx的文件时，才执行这个脚本</p>
+
+<p>有了上面这些东西，就能够编写基本的cookbook的编写(我就仅仅知道这么多)，但有时候，我们需要，对某一个更深入些，那么就去:[http://wiki.opscode.com/display/chef/Resources#Resources-Script],就会得到你需要的了</p>
+
+<h3>3:杂项</h3>
+
+<ul>
+<li><p>1:变量</p>
+
+<ul>
+<li><p>1:针对一个用户的变量</p>
+
+<p>在attributes种可以定义默认的变量，但是有些时候，在莫个变量上，有些用户希望是自己独有的，这种情况，我们可以针对改用户做修改
+每个用户的情况，在chef餐厅里都有存储，可以通过&#8221;knife node&#8221;对用户进行操作：</p>
+
+<p> <pre>
+# knife node
+FATAL: Cannot find sub command for: 'node'
+Available node subcommands: (for details, knife SUB-COMMAND --help)
+** NODE COMMANDS **
+knife node create NODE (options)
+knife node run_list add [NODE] [ENTRY[,ENTRY]] (options)
+knife node list (options)
+knife node edit NODE (options)
+knife node bulk delete REGEX (options)
+knife node show NODE (options)
+knife node from file FILE (options)
+knife node delete NODE (options)
+knife node run_list remove [NODE] [ENTRIES] (options)
+</pre>
+比如要对莫个客户做调整:
+<pre>
+#knife node edit client_name
+</pre>
+会打开一个编辑器，显示当前用户的配置文件(json格式,要注意里面的东西一定要是json的否则，如果你些了半天，有个标点符号错，然后保存了，恭喜，你刚才些的白写了),
+<pre>
+{
+ "name": "client_name",
+ "run_list": [
+   "recipe[os_init]",
+   "recipe[openssh]"
+ ],
+ "normal": {
+   "openssh": {</p>
+
+<pre><code> "server": {
+ },
+ "client": {
+ }
+</code></pre>
+
+   },
+   &#8220;manage&#8221;: {
+
+<pre><code> "extra": [
+   "user1",
+   "user2"
+ ]
+</code></pre>
+
+<p>   },
+   &#8220;tags&#8221;: [
+   ]
+ },
+ &#8220;chef_environment&#8221;: &#8220;_default&#8221;
+}
+</pre>
+在normal的下面有这样一段:
+<pre>
+"manage": {
+ "extra": [
+   "user1",
+   "user2"
+ ]
+},
+</pre>
+在recipe或者template中，如何使用这些信息呢？
+通过 node[&#8216;manage&#8217;][&#8216;default&#8217;] 这个变量就可以获取到一个内容为有2个元素(&#8216;user1&#8217;,&#8217;user2&#8217;)</p></li>
+<li><p>2:让一批用户都可以用的变量</p>
+
+<p>在attribute中的变量，所有用户都可以使用，在针对客户定义的变量，只有这个用才可以使用，但是如果有一批用户都需要这个变量呢？给这批用户一个个加多累啊，在说要改这个变量的时候，在一个个改更累，我们需要一个环境级别的变量，用户需要的时候，导入这个环境，即可。</p>
+
+<pre><code>在chef中和cookbook并级的，还以一个environments的文件夹，这里就时存储各种变量的配置文件的
+</code></pre>
+
+<p><pre>
+# knife environment
+FATAL: Cannot find sub command for: 'environment'
+Available environment subcommands: (for details, knife SUB-COMMAND --help)
+** ENVIRONMENT COMMANDS **
+knife environment list (options)
+knife environment create ENVIRONMENT (options)
+knife environment edit ENVIRONMENT (options)
+knife environment show ENVIRONMENT (options)
+knife environment delete ENVIRONMENT (options)
+knife environment from file FILE (options)
+</pre></p>
+
+<p>随便写个存储环境变量的文件:
+<pre>
+vim environments/new.json
+</pre>
+这个也会打开一个编辑器，然活可以在里面写json格式的数据
+<pre>
+{
+  "name": "openstack",
+  "description": "",
+  "cookbook_versions": {
+  },
+  "json_class": "Chef::Environment",
+  "chef_type": "environment",
+  "default_attributes": {</p>
+
+<pre><code>"mysql": {
+  "allow_remote_root": true,
+  "root_network_acl": "%"
+}
+</code></pre>
+
+  },
+  &#8220;override_attributes&#8221;: {
+
+<pre><code>"developer_mode": false,
+"enable_monit": true,
+"manage": {
+  "extra": [
+    "user3",
+    "user4"
+ ]
+</code></pre>
+
+<p>  }
+  }
+}
+</pre>
+这个文件里面需要注意的有3块:name default_attirbute override_attribute</p>
+
+<p>name:当前环境的名字
+default_attribute:该环境中的默认属性
+override_attribute:该环境中的会覆盖到默认属性的属性</p>
+
+<p>环境变量定义好后，需要导入
+<pre>
+# knife environment from file environments/new.json
+Updated Environment openstack
+</pre>
+环境变量导入后，在chef中就存在了，客户在要用的时候，还需要做一个操作:修改客户的配置：
+  <pre>
+  #knife node edit client_name
+  {</p>
+
+<pre><code>"name": "client_name",
+ \*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*\*
+"chef_environment": "openstack"
+</code></pre>
+
+<p>  }
+  </pre>
+将chef_environment对应的值改成刚刚定义的变量名，在然后,在recipe或者template中,通过 node[&#8216;manage&#8217;][&#8216;default&#8217;] 这个变量就可以获取到一个内容为有2个元素(&#8216;user3&#8217;,&#8217;user3&#8217;)</p></li>
+</ul>
+</li>
+<li><p>2:针对特定类型的客户做不同处理</p>
+
+<p>  比如我们需要对cenotos和ubuntu的系统分别上传不同的文件，或者不同的模板。当然我们可以在recipes种通过系统的类型来判断，做不同的操作。chef还给我们提供了一种方法。</p>
+
+<p>  我们注意到在files和template些都有个default的文件夹，也是时默认从这里找我们需要的模板和文件；是不是centos的客户会首先重centos的文件夹下找呢？对就是这样的</p>
+
+<p>  我们需要往不同的系统上传不同的文件或者模板时，只需要创建相应的文件夹，然后在文件夹种方式和default种同名的文件，不同的系统的客户，就会先来该系统的目录下查找，找不到，在去default目录下查找的</p></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[fpm包管理]]></title>
+    <link href="http://halfss.github.com/blog/2013/02/26/fpmbao-guan-li/"/>
+    <updated>2013-02-26T16:38:00+08:00</updated>
+    <id>http://halfss.github.com/blog/2013/02/26/fpmbao-guan-li</id>
+    <content type="html"><![CDATA[<h3>1简介</h3>
+
+<p>fpm:对包的类型进行转换,从一种类型转换到另一种类型</p>
+
+<p>#包作者整理了PPT:</p>
+
+<pre>
+https://docs.google.com/presentation/d/11TOsLeg58w7GCt6i7y1VIQWnUYotsx0MzGMJ_dWUJNo/present#slide=id.i0
+</pre>
+
+
+<p>目前源类型支持:</p>
+
+<ul>
+<li><p>dir:二进制包</p></li>
+<li><p>rpm:redhat系列的包</p></li>
+<li><p>gem:ruby的包 #fpm就是用ruby写的,也是gem中的一个包</p></li>
+<li><p>python:python的模块</p></li>
+</ul>
+
+
+<p>目标类型:</p>
+
+<ul>
+<li>rpm</li>
+<li>deb</li>
+<li>solaris</li>
+<li>puppet</li>
+</ul>
+
+
+<h3>2安装</h3>
+
+<h4>2.1安装环境</h4>
+
+<p>fpm是ruby写的,系统环境需要rbuy</p>
+
+<p>#ruby版本要大于1.8.5</p>
+
+<p>在centos5上默认的源的ruby版本为1.8.5,</p>
+
+<p>需添加一下源:</p>
+
+<pre>
+
+rpm -ivh http://yum.puppetlabs.com/el/5/products/x86_64/puppetlabs-release-5-6.noarch.rpm
+
+</pre>
+
+
+<p>该源中的ruby版本为1.8.7</p>
+
+<pre>
+
+yum install -y ruby ruby-devel rubygems rpm-build
+
+</pre>
+
+
+<h4>2.2安装fpm</h4>
+
+<pre>
+gem install fpm
+</pre>
+
+
+<h3>3使用</h3>
+
+<h4>3.1常用语法</h4>
+
+<pre>
+
+常用命令:
+
+fpm -s 源类型 -t 目标类型 [options]
+
+
+
+常用的options:
+
+-n 生成的package名字
+
+-p 生成的package文件输出位置
+
+-v 生成的package版本
+
+-d 生成的package依赖于什么软件,通常为-d 'name' 或这 -d 'name > version'
+
+-a 系统架构名称,如果是noarch则为'-a all' 或者 '-a native'
+
+--description 软件包描述
+
+--conflicts 与其他什么软件冲突
+
+
+
+详情:fpm -h
+
+</pre>
+
+
+<h4>3.2示例</h4>
+
+<pre>
+
+[root@localhost test]# tar -xf libiconv-1.13.1.tar.gz 
+
+[root@localhost test]# cd libiconv-1.13.1
+
+[root@localhost libiconv-1.13.1]# ./configure --prefix=/usr
+
+
+
+[root@localhost libiconv-1.13.1]# make
+
+[root@localhost libiconv-1.13.1]# mkdir /tmp/libiconv-1.13.1
+
+[root@localhost libiconv-1.13.1]# make install DESTDIR=/tmp/libiconv-1.13.1
+
+
+
+[root@localhost libiconv-1.13.1]# ls /tmp/libiconv-1.13.1/
+
+usr
+
+
+
+[root@localhost rpm_test]# ls
+
+[root@localhost rpm_test]# fpm -s dir -t rpm -n libiconv -v 1.13.1 -C /tmp/libiconv-1.13.1 usr
+
+[root@localhost rpm_test]# ls
+
+libiconv-1.13.1-1.x86_64.rpm
+
+[root@localhost rpm_test]# rpm -qpl libiconv-1.13.1-1.x86_64.rpm 
+
+/usr/bin/iconv
+
+/usr/include/iconv.h
+
+/usr/include/libcharset.h
+
+…….
+
+</pre>
+
+
+<p>参考:</p>
+
+<ul>
+<li><p>http://waydee.blog.51cto.com/4677242/834002</p></li>
+<li><p>http://blog.sina.com.cn/s/blog_704836f40101fscj.html</p></li>
+<li><p>http://www.ducea.com/2011/08/31/build-your-own-packages-easily-with-fpm/</p></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+</feed>
