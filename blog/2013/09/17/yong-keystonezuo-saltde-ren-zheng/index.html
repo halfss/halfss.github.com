@@ -6,10 +6,10 @@
     
 
 <meta charset="utf-8">
-<title>Category: OPS - halfss's blog</title>
+<title>用keystone做salt的认证 - halfss's blog</title>
 <meta name="author" content="halfss">
 <meta name="description"
-      content="Category: OPS">
+      content="用keystone做salt的认证 salt可以使用基于linux的pam的认证也支持其他的认证,比如ldap,还支持openstack的keystone master配置文件添加如下内容: keystone.auth_url: http://192.168.10.10:35357/v2.0 &hellip;">
 
 
 <!-- http://t.co/dKP3o1e -->
@@ -17,7 +17,7 @@
 <meta name="MobileOptimized" content="320">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<link rel="canonical" href="http://halfss.github.comblog/categories/ops">
+<link rel="canonical" href="http://halfss.github.com/blog/2013/09/17/yong-keystonezuo-saltde-ren-zheng">
 <link href="/favicon.png" rel="icon">
 <link href="/stylesheets/screen.css"
       media="screen, projection"
@@ -71,33 +71,100 @@
 
       <div id="content">
 	<!-- content -->
-	<div id="page">
-  <h2>カテゴリ "OPS" 一覧</h2>
-
-<div id="blog-archives" class="category">
+	
 
   
 
-  
-    
-    
-    </ul>
-    
 
-    <h3>2013 年</h3>
-    <ul>
-  
+<article class="entry" role="article">
 
-      <li>
-        <time datetime="2013-09-17T15:54:00+08:00" pubdate>
-          <span class='month'>09月</span> <span class='day'>17日</span>
-        </time>
-        &mdash;
-        <a href="/blog/2013/09/17/yong-keystonezuo-saltde-ren-zheng/">用keystone做salt的认证</a>
-      </li>
+  <header>
+    <h2 class="entry_title">用keystone做salt的认证</h2>
+    
+  </header>
+
+  <div class="entry_content"><p>salt可以使用基于linux的pam的认证也支持其他的认证,比如ldap,还支持openstack的keystone</p>
+
+<p>master配置文件添加如下内容:</p>
+
+<pre>
+keystone.auth_url: http://192.168.10.10:35357/v2.0
+</pre>
+
+
+<p>然后配置keystone中指定用户的权限</p>
+
+<pre>
+external_auth:
+  keystone:
+    halfss:
+      - "*":
+        - '*'
+</pre>
+
+
+<p>结果如下:</p>
+
+<pre>
+salt -a keystone '*' test.ping
+username: halfss
+password:
+192.168.10.10:
+    True
+192.168.10.11:
+    True
+</pre>
 
 </div>
 
+  <footer>
+    <p class="meta">
+
+      
+
+      
+      <time datetime="2013-09-17 15:54:00 +0800" pubdate>Sep 17<span>th</span>, 2013</time>
+      
+
+      
+      <span class="categories">
+	<a class='category' href='/blog/categories/ops/'>OPS</a>
+      </span>
+      
+
+    </p>
+
+    
+    <div class="sharing">
+
+      
+      <a href="http://twitter.com/share"
+	 class="twitter-share-button"
+	 data-url="http://halfss.github.com/blog/2013/09/17/yong-keystonezuo-saltde-ren-zheng/"
+	 data-via=""
+	 data-counturl="http://halfss.github.com/blog/2013/09/17/yong-keystonezuo-saltde-ren-zheng/" >Tweet</a>
+      
+
+      
+
+      
+    </div>
+    
+
+    
+    <section>
+      <h3 id="comments">Comments</h3>
+      <div id="disqus_thread" aria-live="polite">
+	<noscript>
+	  Javascript を有効にしないとコメントを見ることができません。
+	  (<a href="http://disqus.com/?ref_noscript">Disqus</a>)
+	</noscript>
+      </div>
+    </section>
+    
+
+  </footer>
+  
 </div>
 
 	<!-- /content -->
@@ -120,7 +187,10 @@
       var disqus_shortname = 'halfss';
       
 	
-	var disqus_script = 'count.js';
+	// var disqus_developer = 1;
+	var disqus_identifier = 'http://halfss.github.com/blog/2013/09/17/yong-keystonezuo-saltde-ren-zheng';
+	var disqus_url = 'http://halfss.github.com/blog/2013/09/17/yong-keystonezuo-saltde-ren-zheng';
+	var disqus_script = 'embed.js';
       
     (function () {
       var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
